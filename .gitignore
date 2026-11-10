@@ -1,0 +1,15 @@
+# Audio stays out of git (size + licences). Lists/labels/attribution are committed,
+# so a reproducer can re-download via scripts/.
+data/**
+!data/**/
+!data/**/metadata.csv
+!data/**/candidates.csv
+!data/raw/_fs_*_meta.json
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Node
+node_modules/

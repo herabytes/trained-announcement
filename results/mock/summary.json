@@ -1,0 +1,20 @@
+{
+  "models": {
+    "parakeet-tdt-0.6b-v3": {
+      "n_clips": 6,
+      "facts_correct": 7,
+      "facts_wrong": 3,
+      "facts_missing": 0,
+      "fact_score": 1,
+      "mean_wer": 0.15
+    },
+    "whisper-small": {
+      "n_clips": 6,
+      "facts_correct": 5,
+      "facts_wrong": 4,
+      "facts_missing": 2,
+      "fact_score": -3,
+      "mean_wer": 0.2
+    }
+  }
+}

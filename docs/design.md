@@ -46,4 +46,7 @@ Methods to try - implement then run eval then merge if better
 
 
 The actual eval:
-Different from plain transcription % accuracy by words. We can do LLM-as-a-judge (need it or nah?) for whether or not key information was conveyed. Well, extracting ground truth key info needs LLM at scale probably.
+Different from plain transcription % accuracy by words. We can do LLM-as-a-judge (need it or nah?) for whether or not key information was conveyed. Well, extracting ground truth key info needs LLM at scale probably. "Change the metric. Overall WER matters less than getting the key facts right: station, platform, minutes of delay, cancelled or not. Score those fields directly. That also answers your question "at what point does it become impossible?" more usefully."
+
+Missing info vs wrong info:
+Given enough context, you could recover from a missing piece by asking someone. If a number is wrong and you trust it, that's worse. This is important for our benchmark.
