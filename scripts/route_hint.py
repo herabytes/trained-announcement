@@ -29,6 +29,26 @@ LOOKUP_URL = os.environ.get(
     "ROUTE_LOOKUP_URL", "https://merchyaqua--trained-announcement-route-lookup-route.us-east.modal.run")
 
 
+# Used when the journey isn't known (the eval's "context" condition; the demo's Compare for clips
+# without station info).
+# Contextual biasing: text Whisper "reads" before listening, so it expects these words/spellings.
+# Chosen by a NEUTRAL rule - London terminals + largest city stations + operators (incl. pre-2020
+# brands) + standard announcement phrases - NOT copied from any clip's transcript (that would leak
+# the answer). Same hint for every clip. Whisper only uses ~220 tokens of prompt, so keep it short.
+GENERIC_HINT = (
+    "UK train announcement. Ladies and gentlemen, the next station is ... Calling at ... "
+    "Change here for ... Please mind the gap. Oyster card, contactless, platform, coaches, first class, "
+    "delayed, cancelled, signal failure. "
+    "London Paddington, Euston, King's Cross, St Pancras, Liverpool Street, Victoria, Waterloo, "
+    "London Bridge, Marylebone, Birmingham New Street, Manchester Piccadilly, Leeds, York, Newcastle, "
+    "Glasgow Central, Glasgow Queen Street, Edinburgh Waverley, Liverpool Lime Street, "
+    "Bristol Temple Meads, Cardiff Central, Reading, Clapham Junction. "
+    "ScotRail, Avanti West Coast, Virgin Trains, Great Western Railway, First Great Western, LNER, "
+    "Northern, TransPennine Express, CrossCountry, Southern, Southeastern, South Western Railway, "
+    "Thameslink, Greater Anglia, London Overground, Elizabeth line, London Underground."
+)
+
+
 def _key(origin: str, destination: str) -> str:
     return f"{origin.strip().lower()} -> {destination.strip().lower()}"
 

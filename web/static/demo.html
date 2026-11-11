@@ -58,14 +58,14 @@
     <label class="opt"><input type="checkbox" id="pa" checked> PA speaker filter (300–3400 Hz)</label>
   </section>
   <!-- Only shown once a journey's route has been looked up: without a route there is no hint to compare. -->
-  <section class="panel" id="hintpanel" hidden>
-    <h2>Route hint</h2>
-    <label class="opt"><input type="checkbox" id="context" checked> Use the route hint for new transcriptions &middot; <a href="/context">what is this?</a></label>
+  <section class="panel" id="hintpanel">
+    <h2>Context hint</h2>
+    <label class="opt"><input type="checkbox" id="context" checked> Use the route hint for new transcriptions (when a journey is set) &middot; <a href="/context">what is this?</a></label>
     <label class="toggle">
       <input type="checkbox" id="compare" role="switch">
       <span class="track" aria-hidden="true"><i></i></span>
-      <span><b>Compare</b> with vs without the hint
-        <span class="hint">Re-runs every card the other way and shows what the hint changed.</span></span>
+      <span><b>Compare</b> with vs without a hint
+        <span class="hint">Re-runs every card the other way. With a journey: the route hint. Without station info: the eval's generic UK-rail list.</span></span>
     </label>
   </section>
   <!-- Evidence: collapsed and muted so it doesn't compete with the transcript cards. -->

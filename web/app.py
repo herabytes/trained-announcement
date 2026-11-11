@@ -277,7 +277,8 @@ def transcribe(
     clip_id: str = Form(""),                 # ...or the id of a dataset clip already on disk
     journey: str = Form("{}"),               # JSON {"from","to","operator"}: future context hint
     denoise: bool = Form(False),             # accepted now, applied once exp/denoise merges
-    context: bool = Form(False),             # accepted now, applied once exp/context merges
+    context: bool = Form(False),             # route hint from the journey
+    generic: bool = Form(False),             # generic UK-rail hint, for audio without station info
     simulate: bool = Form(False),            # mix in train noise before transcribing
     snr_db: float = Form(5.0),
     pa_filter: bool = Form(True),
@@ -327,6 +328,9 @@ def transcribe(
     if context and origin and destination:
         stations, hint_partial = route_stations(origin, destination)
         hint = route_hint.build_hint(stations)
+    hint_kind = "route" if hint else None
+    if generic and hint is None:             # no station info: the eval's generic list instead
+        hint, hint_kind = route_hint.GENERIC_HINT, "generic"
 
     # 3. Transcribe (same settings as scripts/run_eval.py, so the demo matches the eval)
     with _model_lock:
@@ -357,7 +361,7 @@ def transcribe(
                      "noise_clip": NOISE_CLIP.stem} if simulate else None,
         "heard_wav_b64": heard_wav,                      # what the model heard (only when simulated)
         "denoise": {"requested": denoise, "applied": False},  # TODO: exp/denoise
-        "context": {"requested": context, "applied": hint is not None},
+        "context": {"requested": context or generic, "applied": hint is not None, "kind": hint_kind},
         "hint": hint,
         "hint_partial": hint_partial,                    # True = lookup failed, hint is just origin + destination
         "hint_note": PARTIAL_NOTE if hint_partial else None,

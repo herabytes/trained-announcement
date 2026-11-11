@@ -37,7 +37,8 @@ function buildForm(audioBlob, filename, ctx = $("context").checked) {
   const form = new FormData();
   form.append("journey", JSON.stringify(journeyOf()));
   form.append("denoise", false);                  // no denoiser yet (control hidden until one exists)
-  form.append("context", ctx);
+  form.append("context", ctx === true);
+  form.append("generic", ctx === "generic");      // only Compare asks for this (audio without station info)
   if (audioBlob) form.append("audio", audioBlob, filename);
   return form;
 }
@@ -153,8 +154,11 @@ function addCard(runId, who, cls = "") {
 // ---------- Compare: the same audio with vs without the route hint ----------
 // Turning Compare on re-runs every finished card with the opposite hint setting; new cards get
 // their second run automatically. Runs go one at a time (the server does one at a time anyway).
-const routeKey = () => route ? `${route.origin} → ${route.destination}` : "";
-const comparing = () => $("compare").checked && hasJourney();
+// With station info (a journey) the comparison uses the route hint; without it, the eval's generic
+// UK-rail list. The key says which hint a comparison was made with, so changing the journey re-runs it.
+const GENERIC_KEY = "generic UK-rail list";
+const routeKey = () => hasJourney() ? `${route.origin} → ${route.destination}` : GENERIC_KEY;
+const comparing = () => $("compare").checked;
 let compareQueue = Promise.resolve();
 
 function queueCompare(card) {
@@ -162,7 +166,8 @@ function queueCompare(card) {
   if (!card.data || !card.mk || (card.cmp && card.cmp.key === key)) return renderCompare(card);  // done already
   card.cmp = {key, pending: true};
   renderCompare(card);
-  const ctx = !card.data.context.applied;               // the other way round from the main run
+  // The other way round from the main run: without the hint, or with the route / generic hint.
+  const ctx = card.data.context.applied ? false : hasJourney() ? true : "generic";
   compareQueue = compareQueue.then(async () => {
     if (card.runId !== current.id || card.cmp.key !== key) return;   // stale: card gone or journey changed
     try { card.cmp = {key, data: await postTranscribe(card.mk(ctx))}; }
@@ -187,6 +192,7 @@ function renderCompare(card) {
   const c = card.cmp, main = card.data;
   if (!c || !main) { el.innerHTML = ""; return; }
   const mainHasHint = main.context.applied;
+  const generic = c.key === GENERIC_KEY, hintName = generic ? "generic hint" : "route hint";
   const other = c.data;
   const withD = mainHasHint ? main : other, without = mainHasHint ? other : main;
 
@@ -224,17 +230,16 @@ function renderCompare(card) {
       : `<span class="delta same">WER unchanged (${w0.toFixed(2)})</span>`;
     const dt = withD.latency_s - without.latency_s;    // what the hint costs (or saves) in transcription time
     const lat = `<span class="lat">${dt >= 0 ? "+" : "−"}${Math.abs(dt).toFixed(1)} s with hint</span>`;
-    foot = (withD.hint_partial ? "Hint had only the origin and destination. " : "") + (changed ? `The route hint changed <b>${changed}</b> word${changed === 1 ? "" : "s"}.` : "The route hint changed nothing here.") + lat + delta;
+    foot = (withD.hint_partial ? "Hint had only the origin and destination. " : "") + (changed ? `The ${hintName} changed <b>${changed}</b> word${changed === 1 ? "" : "s"}.` : `The ${hintName} changed nothing here.`) + lat + delta;
   }
-  el.innerHTML = `<div class="cmp-title">With vs without route hint <span>${esc(c.key)}</span></div>
+  el.innerHTML = `<div class="cmp-title">With vs without ${hintName} <span>${generic ? "no station info for this audio" : esc(c.key)}</span></div>
     ${row("no", "No hint", without, noHtml, !without ? (c.error ? failed(c.error) : pending) : "")}
-    ${row("yes", "Route hint", hintMissing ? null : withD, hintHtml, !withD ? (c.error ? failed(c.error) : pending) : hintMissing ? failed("no journey set, so no hint") : "")}
+    ${row("yes", generic ? "Generic hint" : "Route hint", hintMissing ? null : withD, hintHtml, !withD ? (c.error ? failed(c.error) : pending) : hintMissing ? failed("no journey set, so no hint") : "")}
     <div class="cmp-foot">${foot}</div>`;
 }
 
-// Show the Route hint panel only when there is a route, and (re)run comparisons when Compare is on.
+// (Re)run comparisons when Compare is on.
 function updateCompareUI() {
-  $("hintpanel").hidden = !hasJourney();
   document.body.classList.toggle("comparing", comparing());
   if (comparing()) current.cards.forEach(queueCompare);
 }
