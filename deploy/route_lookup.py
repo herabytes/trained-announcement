@@ -1,49 +1,82 @@
-"""Route lookup on Modal: origin + destination -> the stations a train calls at (Gemini + Google Search).
+"""Route lookup on Modal: origin + destination -> the stations a train calls at (open LLM on a Modal GPU).
 
-Why it lives on Modal: the Gemini key stays in a Modal secret, so a reviewer running the demo
-locally never needs a key. Results are cached (in a modal.Dict) and capped per day, so the same
-route is only looked up once and nobody can run up the bill.
+Why it lives on Modal: the model runs on Modal's GPUs (paid from Modal credits, no Gemini/OpenAI key),
+so a reviewer running the demo locally needs nothing. Results are cached (in a modal.Dict) and capped
+per day, so the same route is only looked up once and nobody can burn the credits.
 
-    uvx modal run deploy/route_lookup.py::list_models     # check which Gemini models the key can use
+NOTE: there is no web search here. The station list comes purely from the model's own knowledge,
+so it can be incomplete or wrong for obscure routes; treat it as a hint, not ground truth.
+
     uvx modal deploy deploy/route_lookup.py               # deploy; prints the endpoint URL
-
-Needs a Modal secret named "gemini" containing GEMINI_API_KEY.
 """
 import datetime
-import os
 
 import modal
 
 app = modal.App("trained-announcement-route-lookup")
-image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]", "google-genai")
 cache = modal.Dict.from_name("trained-announcement-route-cache", create_if_missing=True)
 
-MODEL = "gemini-3.8-flash"   # 2.5 models are closed to new users (404); newest flash available to the key
+MODEL = "Qwen/Qwen3-8B"      # ungated (Apache-2.0), strong general knowledge; ~16 GB bf16 fits a 24 GB L4
+GPU = "L4"
 DAILY_CAP = 100              # max fresh lookups per day (cached routes don't count)
 MAX_STATIONS = 30            # keeps the Whisper hint short
 
+weights = modal.Volume.from_name("trained-announcement-hf-cache", create_if_missing=True)
+WEIGHTS_DIR = "/hf-cache"
 
-def ask_gemini(origin: str, destination: str) -> list[str]:
-    """One grounded Gemini call: returns station names in calling order."""
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    prompt = (
-        f"List the UK railway stations a typical train calls at travelling from {origin} to {destination}, "
-        "in order, including both ends. Use the official National Rail station names. "
-        "Reply with ONLY the station names separated by ' | ' and nothing else."
-    )
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]),
-    )
-    stations = [name.strip(" .\n*") for name in (response.text or "").split("|")]
-    return [s for s in stations if s][:MAX_STATIONS]
+web_image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]")
+gpu_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .uv_pip_install("torch==2.6.0", "transformers==4.53.2", "accelerate==1.8.1", "huggingface_hub[hf_transfer]")
+    .env({"HF_HOME": WEIGHTS_DIR, "HF_HUB_ENABLE_HF_TRANSFER": "1"})
+)
 
 
-@app.function(image=image, secrets=[modal.Secret.from_name("gemini")], timeout=90)
+@app.cls(image=gpu_image, gpu=GPU, volumes={WEIGHTS_DIR: weights}, scaledown_window=120, timeout=600)
+class RouteModel:
+    @modal.enter()
+    def load(self):
+        import torch
+        from huggingface_hub import snapshot_download
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        path = snapshot_download(MODEL)     # no-op once the weights are on the Volume
+        weights.commit()
+        self.tok = AutoTokenizer.from_pretrained(path)
+        self.model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.bfloat16, device_map="cuda")
+        self.model.eval()
+
+    @modal.method()
+    def stations(self, origin: str, destination: str) -> list[str]:
+        import torch
+
+        prompt = (
+            f"List the UK railway stations a typical train calls at travelling from {origin} to {destination}, "
+            "in order, including both ends. Use the official National Rail station names, and only include "
+            "stations you are confident exist. Reply with ONLY the station names separated by ' | ' and nothing else."
+        )
+        text = self.tok.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            tokenize=False, add_generation_prompt=True, enable_thinking=False,   # Qwen3: no <think> block
+        )
+        inputs = self.tok(text, return_tensors="pt").to("cuda")
+        with torch.no_grad():
+            out = self.model.generate(**inputs, max_new_tokens=400, do_sample=False)  # greedy = deterministic
+        reply = self.tok.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+        return parse_stations(reply)
+
+
+def parse_stations(reply: str) -> list[str]:
+    seen, stations = set(), []
+    for name in reply.replace("\n", "|").split("|"):
+        name = name.strip(" .*-\t")
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            stations.append(name)
+    return stations[:MAX_STATIONS]
+
+
+@app.function(image=web_image, timeout=600)
 @modal.fastapi_endpoint(method="GET")
 def route(origin: str, destination: str):
     from fastapi import HTTPException
@@ -61,32 +94,10 @@ def route(origin: str, destination: str):
         raise HTTPException(429, "daily lookup limit reached; try a cached journey")
     cache[day_key] = cache.get(day_key, 0) + 1
 
-    try:                                               # 3. fresh lookup, then remember it
-        stations = ask_gemini(origin, destination)
-    except Exception as e:  # e.g. Gemini quota (429): say so instead of a bare 500
+    try:                                               # 3. fresh lookup on the GPU, then remember it
+        stations = RouteModel().stations.remote(origin, destination)
+    except Exception as e:  # say what failed instead of a bare 500
         raise HTTPException(502, f"route lookup failed: {type(e).__name__}: {str(e)[:200]}")
     if stations:
         cache[key] = stations
     return {"origin": origin, "destination": destination, "stations": stations, "cached": False}
-
-
-@app.function(image=image, secrets=[modal.Secret.from_name("gemini")])
-def list_models():
-    """Print the Gemini 'flash' models this key can use (run before deploying)."""
-    from google import genai
-
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    names = [m.name for m in client.models.list() if "flash" in m.name]
-    print("\n".join(sorted(names)))
-
-
-@app.function(image=image, secrets=[modal.Secret.from_name("gemini")])
-def ping(use_search: bool = False):
-    """Debug helper: one tiny Gemini request, with or without Google Search, to check the key's quota."""
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    tools = [types.Tool(google_search=types.GoogleSearch())] if use_search else None
-    r = client.models.generate_content(model=MODEL, contents="Say OK.", config=types.GenerateContentConfig(tools=tools))
-    print(f"use_search={use_search}: {r.text!r}")

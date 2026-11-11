@@ -45,7 +45,7 @@ def lookup_route(origin: str, destination: str) -> list[str]:
         return cache[key]["stations"]
 
     url = LOOKUP_URL + "?" + urllib.parse.urlencode({"origin": origin, "destination": destination})
-    with urllib.request.urlopen(url, timeout=120) as response:   # raises if the lookup fails
+    with urllib.request.urlopen(url, timeout=600) as response:   # raises if the lookup fails
         stations = json.loads(response.read())["stations"]
     if stations:
         cache[key] = {"origin": origin, "destination": destination, "stations": stations,
