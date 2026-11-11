@@ -25,6 +25,7 @@ The hard parts:
 
 | Part | What it does |
 |---|---|
+| `web/` → `/demo` | **The product demo**: journey → play or speak an announcement → live transcript (optionally through a simulated train PA) |
 | `scripts/download_data.py` | Re-downloads the dataset (real announcement recordings from Freesound + train noise) |
 | `web/` → `/label` | Labelling page: listen, mark the announcement segment, write the reference transcript |
 | `scripts/run_eval.py` | Runs ASR models over the clips, scores WER against your labels, times transcription |
@@ -41,6 +42,7 @@ python scripts/download_data.py --no-demand   # ~45 MB of Freesound clips (drop 
 ## Run
 
 ```bash
+uv run web/app.py --demo     # live demo       → http://127.0.0.1:8000/demo   (start here)
 uv run web/app.py            # results viewer  → http://127.0.0.1:8000
 uv run web/app.py --label    # labelling page  → http://127.0.0.1:8000/label
 
@@ -48,7 +50,9 @@ uv run scripts/run_eval.py --run-id my_run                      # all announceme
 uv run scripts/run_eval.py --run-id my_run --clips fs267700     # one clip
 ```
 
-First eval run downloads the models (Parakeet TDT 0.6B v3 int8, Whisper Small int8).
+The first transcription downloads Whisper Small (~500 MB, one-off); the first eval run also downloads Parakeet TDT 0.6B v3 int8.
+
+**Demo:** type your journey, then either pick a recorded announcement (Recommended clips first) and press *Transcribe this clip*, or press **● Record**, read an announcement aloud, and **■ Stop**. Tick *Simulate train* to hear your voice through a PA speaker with carriage noise, and see what the model makes of it. Allow microphone access when the browser asks.
 
 ## How the eval works
 
