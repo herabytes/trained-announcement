@@ -170,6 +170,7 @@ body.analysis.comparing .cmp:not(:empty){display:block;animation:pop .25s ease-o
 mark.came{background:linear-gradient(transparent 55%,#a8e6d8 55%);color:var(--hint-ink);font-weight:600;padding:0 1px}
 .cmp-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 14px;background:var(--hint-soft);
   font-size:13px;color:var(--hint-ink)}
+.cmp-foot .lat{color:var(--soft);font-variant-numeric:tabular-nums}
 .delta{margin-left:auto;font-weight:600;padding:1px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
 .delta.better{background:#dcf1df;color:#21632d}.delta.worse{background:#f9dcdd;color:#9c2730}.delta.same{background:#eef1f5;color:var(--soft)}
 @media (max-width:520px){.cmp-row{grid-template-columns:1fr}.cmp-wer{justify-self:start}}

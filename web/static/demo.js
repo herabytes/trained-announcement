@@ -208,7 +208,7 @@ function renderCompare(card) {
   const row = (cls, tag, d, html, note) => `<div class="cmp-row ${cls}">
       <div class="cmp-tag">${tag}</div>
       <div class="cmp-text">${note || html || (d && d.text ? esc(d.text) : '<span class="hint">no speech found</span>')}</div>
-      <div class="cmp-wer">${d && werOf(d) != null ? `WER ${werOf(d).toFixed(2)}` : ""}</div></div>`;
+      <div class="cmp-wer">${d ? [werOf(d) != null ? `WER ${werOf(d).toFixed(2)}` : "", `${d.latency_s.toFixed(1)} s`].filter(Boolean).join(" · ") : ""}</div></div>`;
   const pending = '<span class="thinking">re-running…</span>';
   const failed = msg => `<span class="notice inline">${esc(msg)}</span>`;
   const hintMissing = withD && !withD.context.applied;  // asked for the hint, server couldn't build it
@@ -222,7 +222,9 @@ function renderCompare(card) {
     const delta = w0 == null ? "" : w1 < w0 ? `<span class="delta better">WER ${w0.toFixed(2)} → ${w1.toFixed(2)} · hint helped</span>`
       : w1 > w0 ? `<span class="delta worse">WER ${w0.toFixed(2)} → ${w1.toFixed(2)} · hint hurt</span>`
       : `<span class="delta same">WER unchanged (${w0.toFixed(2)})</span>`;
-    foot = (withD.hint_partial ? "Hint had only the origin and destination. " : "") + (changed ? `The route hint changed <b>${changed}</b> word${changed === 1 ? "" : "s"}.` : "The route hint changed nothing here.") + delta;
+    const dt = withD.latency_s - without.latency_s;    // what the hint costs (or saves) in transcription time
+    const lat = `<span class="lat">${dt >= 0 ? "+" : "−"}${Math.abs(dt).toFixed(1)} s with hint</span>`;
+    foot = (withD.hint_partial ? "Hint had only the origin and destination. " : "") + (changed ? `The route hint changed <b>${changed}</b> word${changed === 1 ? "" : "s"}.` : "The route hint changed nothing here.") + lat + delta;
   }
   el.innerHTML = `<div class="cmp-title">With vs without route hint <span>${esc(c.key)}</span></div>
     ${row("no", "No hint", without, noHtml, !without ? (c.error ? failed(c.error) : pending) : "")}
