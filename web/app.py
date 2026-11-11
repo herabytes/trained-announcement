@@ -35,6 +35,17 @@ STATIC = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(title="ASR eval viewer")
 
+
+@app.middleware("http")
+async def always_revalidate(request, call_next):
+    """Pages and their JS/CSS change while the app is being developed. Without this the browser can
+    reuse a cached demo.js next to a fresh demo.css and the page silently half-updates.
+    no-cache = check with the server every time (a cheap 304 when nothing changed)."""
+    response = await call_next(request)
+    if not request.url.path.startswith(("/api/", "/audio/")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
 # --- labelling -------------------------------------------------------------
 RAW = DATA / "raw"
 LABELS = RAW / "labels.csv"

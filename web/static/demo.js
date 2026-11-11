@@ -83,6 +83,11 @@ function makePlayer(btn) {
   return p;
 }
 
+function enableAnalysis() {
+  $("analysis").disabled = false;
+  $("analysis").closest("label").title = "Show timings, model details, route-hint comparison and the evaluation evidence";
+}
+
 // POST one transcription request. Returns the JSON, or throws with the server's message.
 async function postTranscribe(form) {
   const r = await fetch("/api/transcribe", {method: "POST", body: form});
@@ -132,7 +137,7 @@ function addCard(runId, who, cls = "") {
         if (runId !== current.id) return null;          // the user has moved on
         card.data = d;
         card.show(d, extra);
-        document.body.classList.add("has-results");     // first transcript: the Analysis switch appears
+        enableAnalysis();                               // first transcript: the Analysis switch becomes usable
         if (comparing()) queueCompare(card);
         return d;
       } catch (e) {
