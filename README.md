@@ -90,7 +90,7 @@ Same model, same clips, one run (branch `exp/context`, `results/2026-11-11_conte
 
 | Whisper Small, 6 clips with a known journey | median WER | mean WER |
 |---|---|---|
-| no hint | 0.23 | 0.40 |
+| no hint | 0.23 | 0.39 |
 | generic hint | 0.21 | 0.33 |
 | **route hint** | **0.09** | **0.16** |
 

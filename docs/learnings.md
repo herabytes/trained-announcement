@@ -1,4 +1,6 @@
 Next time when I have to deal with any data I'm gonna open a Jupyter Notebook first and use pandas. This is too messy. 
+You really can't stand behind every decision when your scope is huge. Keep in mind.
+Models do overclaim results unless you give it a data audit agent.
 - Scot Rail Service - must have a bunch of hard to pronounce names... Language switching broo
 - Whisper 30second windows on noise it just decided there is no speech bruh.
 
