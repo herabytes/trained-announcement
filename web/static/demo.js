@@ -132,6 +132,7 @@ function addCard(runId, who, cls = "") {
         if (runId !== current.id) return null;          // the user has moved on
         card.data = d;
         card.show(d, extra);
+        document.body.classList.add("has-results");     // first transcript: the Analysis switch appears
         if (comparing()) queueCompare(card);
         return d;
       } catch (e) {
