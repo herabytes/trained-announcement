@@ -28,11 +28,15 @@ let clips = {};            // clip_id -> {title, reference, seg_start, ...} from
 let lastRecording = null;  // the most recent mic recording (a Blob)
 
 // ---------- Form fields shared by every transcription request ----------
-function buildForm(audioBlob, filename) {
+let route = null;          // {origin, destination, stations, hint} once a journey is set and looked up
+const journeyOf = () => ({origin: $("from").value.trim(), destination: $("to").value.trim(), operator: $("operator").value});
+const hasJourney = () => !!(route && route.origin === $("from").value.trim() && route.destination === $("to").value.trim());
+
+function buildForm(audioBlob, filename, ctx = $("context").checked) {
   const form = new FormData();
-  form.append("journey", JSON.stringify({from: $("from").value, to: $("to").value, operator: $("operator").value}));
+  form.append("journey", JSON.stringify(journeyOf()));
   form.append("denoise", $("denoise").checked);   // disabled in the UI for now (always false)
-  form.append("context", $("context").checked);
+  form.append("context", ctx);
   if (audioBlob) form.append("audio", audioBlob, filename);
   return form;
 }
@@ -187,6 +191,8 @@ function techHtml(d, extra) {
     extra.simulated ? chip(`train PA · ${extra.simulated.snr_db} dB SNR${extra.simulated.pa_filter ? " · band-pass" : ""}`) : "",
     chip(`denoise ${d.denoise.applied ? "on" : "off"}`, d.denoise.applied),
     chip(`context hint ${d.context.applied ? "on" : "off"}`, d.context.applied),
+    d.hint ? chip(esc(d.hint)) : "",
+    d.hint_error ? chip(esc(d.hint_error), false) : "",
   ].join("");
   const segs = d.segments.length
     ? `<details><summary>Whisper segments (${d.segments.length})</summary>
@@ -225,20 +231,66 @@ async function loadClips() {
 function selectClip(id) {
   $("clip").value = clips[id] ? id : "";
   $("play").disabled = !clips[id];
+  const j = clips[id] && clips[id].journey;
+  if (j) setJourney(j.origin, j.destination);
 }
+
+// ---------- Journey + route hint ----------
+async function setJourney(origin, destination) {
+  $("from").value = origin; $("to").value = destination;
+  route = null;
+  $("routebox").hidden = true;
+  if (!origin.trim() || !destination.trim()) { $("routemsg").textContent = ""; return; }
+  $("routemsg").textContent = "looking up route…";
+  try {
+    const r = await fetch(`/api/route?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.status);
+    if ($("from").value.trim() !== origin.trim() || $("to").value.trim() !== destination.trim()) return;  // user moved on
+    route = d;
+    $("routemsg").textContent = "";
+    $("routehint").textContent = "Route hint: " + d.hint;
+    $("routebox").hidden = false;
+  } catch (e) {
+    $("routemsg").textContent = e.message;
+  }
+}
+
+async function loadRoutes() {
+  try {
+    const list = await (await fetch("/api/routes")).json();
+    $("routechips").innerHTML = list.map((r, i) =>
+      `<button class="ghost chipbtn" data-i="${i}">${esc(r.origin)} → ${esc(r.destination)}</button>`).join("");
+    $("routechips").onclick = e => {
+      const r = list[e.target.dataset && e.target.dataset.i];
+      if (r) setJourney(r.origin, r.destination);
+    };
+  } catch (e) { /* presets are optional */ }
+}
+$("from").onchange = $("to").onchange = () => setJourney($("from").value, $("to").value);
 
 // Play: start the audio AND the transcription at the same time, like hearing it on the train.
 function playClip() {
   const c = clips[$("clip").value];
   if (!c) return;
   const runId = newResultSet();
+  const src = "/audio/" + c.audio_path, s0 = +c.seg_start || 0, s1 = c.seg_end ? +c.seg_end : null;
+  const mk = ctx => { const f = buildForm(null, null, ctx); f.append("clip_id", c.clip_id); return f; };
+  if ($("compare").checked && hasJourney()) return compareCards(runId, mk, src, s0, s1);
   const card = addCard(runId, "Announcement");
   // The API trims labelled clips to seg_start..seg_end; play exactly that part.
-  card.player.setSource("/audio/" + c.audio_path, +c.seg_start || 0, c.seg_end ? +c.seg_end : null);
+  card.player.setSource(src, s0, s1);
   card.player.play();
-  const form = buildForm();
-  form.append("clip_id", c.clip_id);
-  card.transcribe(form);
+  card.transcribe(mk($("context").checked && hasJourney()));
+}
+
+// Same audio twice: without and with the route hint. Each card keeps its own play button.
+async function compareCards(runId, mk, src, s0 = 0, s1 = null) {
+  const a = addCard(runId, "Without hint"), b = addCard(runId, "With route hint", "pa");
+  [a, b].forEach(c => c.player.setSource(src, s0, s1));
+  a.player.play();
+  await a.transcribe(mk(false));
+  if (runId === current.id) await b.transcribe(mk(true));
 }
 
 // ---------- Microphone ----------
@@ -282,9 +334,12 @@ async function toggleRecording() {
 
 function transcribeRecording() {
   const runId = newResultSet();
+  const rec = lastRecording, name = `mic.${extFor(rec)}`;
+  if ($("compare").checked && hasJourney())
+    return compareCards(runId, ctx => buildForm(rec, name, ctx), URL.createObjectURL(rec));
   const card = addCard(runId, "Your voice");
-  card.player.setSource(URL.createObjectURL(lastRecording));
-  card.transcribe(buildForm(lastRecording, `mic.${extFor(lastRecording)}`));
+  card.player.setSource(URL.createObjectURL(rec));
+  card.transcribe(buildForm(rec, name, $("context").checked && hasJourney()));
 }
 
 // Simulate my PA: play your voice, then straight away the train-PA version; transcribe both.
@@ -325,8 +380,9 @@ async function simulatePA() {
   }
 
   // 2. Transcribe both, one after the other (the server runs one at a time anyway).
-  await voice.transcribe(buildForm(rec, `mic.${extFor(rec)}`));
-  if (paBlob && runId === current.id) await pa.transcribe(buildForm(paBlob, "pa.wav"), {simulated: settings});
+  const ctx = $("context").checked && hasJourney();
+  await voice.transcribe(buildForm(rec, `mic.${extFor(rec)}`, ctx));
+  if (paBlob && runId === current.id) await pa.transcribe(buildForm(paBlob, "pa.wav", ctx), {simulated: settings});
 }
 
 // ---------- Analysis panel + evidence ----------
@@ -357,3 +413,4 @@ if (!navigator.mediaDevices || !window.MediaRecorder) {
   $("recinfo").textContent = "Recording needs a browser with microphone access (http://127.0.0.1 or https).";
 }
 loadClips();
+loadRoutes();

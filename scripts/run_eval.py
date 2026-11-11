@@ -26,6 +26,8 @@ import jiwer                                     # computes WER via edit-distanc
 from faster_whisper import decode_audio          # mp3/wav -> numpy array of samples
 from whisper_normalizer.english import EnglishTextNormalizer  # lowercase, strip punctuation, "eight"->"8", ...
 
+from route_hint import hint_for_clip                # journey -> station list -> "Calling at ..." hint
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = REPO_ROOT / "data" / "raw"
 SAMPLE_RATE = 16000                              # both models expect 16 kHz mono audio
@@ -90,6 +92,18 @@ class WhisperSmallWithContext(WhisperSmall):
         return " ".join(segment.text.strip() for segment in segments)
 
 
+class WhisperSmallRoute(WhisperSmall):
+    """Same model as WhisperSmall; the hint is the clip's own route ("Calling at A, B and C."),
+    built from its journey in data/raw/journeys.csv (see scripts/route_hint.py)."""
+    name = "whisper-small-int8+route"
+    uses_route_hint = True   # tells the eval loop to look up a hint for each clip
+
+    def __call__(self, audio_samples, hint=None):
+        segments, _info = self.model.transcribe(audio_samples, language="en", beam_size=5,
+                                                initial_prompt=hint)
+        return " ".join(segment.text.strip() for segment in segments)
+
+
 class WhisperLargeTurbo(WhisperSmall):
     """~800M params: NOT phone-sized. Used to draft reference transcripts for labelling
     (you still listen + correct), and as an upper-bound comparison."""
@@ -103,6 +117,7 @@ class WhisperLargeTurbo(WhisperSmall):
 # Short names you can pass on the command line: --models parakeet whisper-small
 AVAILABLE_MODELS = {"parakeet": Parakeet, "whisper-small": WhisperSmall,
                     "whisper-small-context": WhisperSmallWithContext,
+                    "whisper-small-route": WhisperSmallRoute,
                     "whisper-large-turbo": WhisperLargeTurbo}
 
 
@@ -175,7 +190,8 @@ def main():
         for clip_id, audio_samples, label in clips:
             # 3a. Transcribe, timing only the model call (= transcription latency)
             transcribe_start = time.time()
-            hypothesis = model(audio_samples).strip()          # what the model heard
+            hint = hint_for_clip(clip_id) if getattr(model, "uses_route_hint", False) else None
+            hypothesis = (model(audio_samples, hint=hint) if hint is not None else model(audio_samples)).strip()
             transcribe_seconds = time.time() - transcribe_start
 
             # 3b. Compare with the answer key, after normalising both sides
@@ -198,6 +214,7 @@ def main():
                 "wer": wer,
                 "facts": [], "fact_score": None,              # TODO: key-fact scoring
                 "inference_s": round(transcribe_seconds, 2),
+                "hint": hint,                                  # None unless a route hint was used
                 "meta": {
                     "source": "freesound", "channel": "real_recording",
                     "kind": label.get("kind") or None,

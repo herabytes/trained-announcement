@@ -28,6 +28,7 @@ The hard parts:
 | `web/` → `/demo` | **The product demo**: journey → play or speak an announcement → live transcript (optionally through a simulated train PA) |
 | `scripts/download_data.py` | Re-downloads the dataset (real announcement recordings from Freesound + train noise) |
 | `web/` → `/label` | Labelling page: listen, mark the announcement segment, write the reference transcript |
+| `scripts/route_hint.py` | Journey → stations on the route (cached; live lookup via `deploy/route_lookup.py` on Modal) → Whisper hint "Calling at A, B and C." |
 | `scripts/run_eval.py` | Runs ASR models over the clips, scores WER against your labels, times transcription |
 | `web/` → `/` | Results viewer: per-model summary, per-clip transcripts vs reference |
 
@@ -85,9 +86,15 @@ WER, lower = better, shown as **median (mean)**: a few clips where a model inven
 
 Same model, same clips, one run (branch `exp/context`, `results/2026-11-11_context_vs_base`). **Helps on human clips** (7 better, 3 same). It fixes names that are in the list ("Enver Waverly" → "Edinburgh Waverley") but not others (Kirkcaldy, Plockton). On stretches it can't hear, Whisper sometimes **writes out the hint itself** (`fs44974`). Caveat: the list was written after seeing the clips, so a few hint words appear in them.
 
-### 3. Context hint: journey-specific
+### 3. Context hint: journey-specific (Whisper Small)
 
-In progress (branch `feat/context`): the hint is built from the passenger's route (the train's calling points), looked up once per journey.
+| Whisper Small, 6 clips with a known journey | median WER | mean WER |
+|---|---|---|
+| no hint | 0.23 | 0.68 |
+| generic hint | 0.18 | 0.56 |
+| **route hint** | **0.10** | **0.31** |
+
+The hint is the clip's own route, e.g. *"Calling at Kyle of Lochalsh, Duirinish, Plockton, … and Inverness."* The journey comes from the clip's Freesound description (never its transcript); the stations come from timetables (`data/route_cache.json`). **It fixed every place name the generic list missed:** Plockton, Kirkcaldy, Inverkeithing, Haymarket, Tiverton Parkway, Stoke-on-Trent, Stockport. Caveats: only 6 clips; a hint can disturb other words ("to Manchester" → "Dimension of"); and on `fs317554`, which is mostly inaudible, it wrote out the whole route, either copied from the hint or heard better than the labeller (a human-labelled eval can't tell which). Run: `results/2026-11-11_route_hint` (one run, all three conditions). Try it in the demo: pick Plockton, compare with vs without the route hint.
 
 ### Failure examples (clip IDs)
 

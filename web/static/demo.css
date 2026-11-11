@@ -101,3 +101,6 @@ body.analysis .tech{display:block}
 #failures a{cursor:pointer;text-decoration:underline}
 #failures .missing{color:#aab}
 footer{text-align:center;color:var(--soft);font-size:12px;padding:10px 0 24px}
+
+.chipbtn{border:1px solid var(--line);background:#f5f7fb;padding:4px 10px;font-size:13px;margin:6px 6px 0 0}
+#routebox{margin-top:8px}

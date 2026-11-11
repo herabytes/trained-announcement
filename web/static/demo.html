@@ -20,6 +20,9 @@
       <input id="to" placeholder="To" aria-label="To">
       <input id="operator" placeholder="Operator (optional)" aria-label="Operator">
     </div>
+    <div id="routechips" class="chips"></div>
+    <div id="routemsg" class="hint"></div>
+    <details id="routebox" hidden><summary class="hint">Route hint</summary><div id="routehint" class="hint"></div></details>
   </section>
 
   <section class="panel listen">
@@ -50,10 +53,12 @@
         <option value="0">heavy (0 dB SNR)</option></select></label>
     <label class="opt"><input type="checkbox" id="pa" checked> PA speaker filter (300–3400 Hz)</label>
     <label class="opt off"><input type="checkbox" id="denoise" disabled> Denoise <em>coming soon</em></label>
-    <label class="opt off"><input type="checkbox" id="context" disabled> Context hint from journey <em>coming soon</em></label>
+    <label class="opt"><input type="checkbox" id="context" checked> Context hint from journey (route hint) &middot; <a href="/context">what is this?</a></label>
+    <label class="opt"><input type="checkbox" id="compare"> Compare: with vs without route hint</label>
   </section>
   <section class="panel">
     <h2>Where small models fail</h2>
+    <p class="hint">Why route hints help: <a href="/context">context hints explained</a>.</p>
     <p class="hint">From the baseline eval (anecdotes, not measured rates). Click a clip id to load it.
       Full numbers: <a href="/">eval results</a>.</p>
     <table id="failures"></table>

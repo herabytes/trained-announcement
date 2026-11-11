@@ -27,6 +27,8 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+import route_hint  # noqa: E402  (lookup_route, build_hint: journey -> "Calling at A, B and C.")
 RESULTS = ROOT / "results"
 DATA = (ROOT / "data").resolve()
 STATIC = Path(__file__).resolve().parent / "static"
@@ -205,18 +207,51 @@ def announcement_clips() -> dict:
             and labels.get(k, {}).get("kind") not in EXCLUDED_KINDS}
 
 
+LOOKUP_DOWN = "live route lookup unavailable; preset journeys still work"
+
+
+@app.get("/api/routes")
+def list_routes():
+    """The cached journeys (work offline), as quick picks for the demo."""
+    return [{"origin": v["origin"], "destination": v["destination"], "stations": v["stations"]}
+            for v in route_hint._load_cache().values()]
+
+
+@app.get("/api/route")
+def get_route(origin: str, destination: str):
+    key = route_hint._key(origin, destination)
+    cached = key in route_hint._load_cache()
+    try:
+        stations = route_hint.lookup_route(origin, destination)
+    except Exception:
+        raise HTTPException(503, LOOKUP_DOWN)
+    if not stations:
+        raise HTTPException(503, LOOKUP_DOWN)
+    return {"origin": origin, "destination": destination, "stations": stations,
+            "hint": route_hint.build_hint(stations), "cached": cached}
+
+
+def clip_journeys() -> dict:
+    f = RAW / "journeys.csv"
+    if not f.is_file():
+        return {}
+    with f.open(encoding="utf-8", newline="") as fh:
+        return {r["clip_id"]: {"origin": r["origin"], "destination": r["destination"]} for r in csv.DictReader(fh)}
+
+
 @app.get("/api/demo/clips")
 def demo_clips():
     """Announcement clips present on disk, with title and (if labelled) the human reference."""
     meta = {m["id"]: m for m in load(RAW / "_fs_ann_meta.json") or []}
     labels = read_labels()
     out = []
+    journeys = clip_journeys()
     for cid, c in announcement_clips().items():
         m, lab = meta.get(cid, {}), labels.get(cid, {})
         out.append({"clip_id": cid, "audio_path": c["audio_path"], "title": m.get("title"),
                     "duration": m.get("dur"), "kind": lab.get("kind") or None,
                     "reference": lab.get("transcript") or None,
-                    "seg_start": lab.get("seg_start") or None, "seg_end": lab.get("seg_end") or None})
+                    "seg_start": lab.get("seg_start") or None, "seg_end": lab.get("seg_end") or None, "journey": journeys.get(cid)})
     return out
 
 
@@ -268,13 +303,25 @@ def transcribe(
         samples = simulate_train(samples, snr_db, pa_filter)
         heard_wav = wav_base64(samples)
 
+    # 2b. Optional: route hint (Whisper's initial_prompt) from the journey
+    hint, hint_error = None, None
+    origin = (journey_obj.get("origin") or journey_obj.get("from") or "").strip()
+    destination = (journey_obj.get("destination") or journey_obj.get("to") or "").strip()
+    if context and origin and destination:
+        try:
+            hint = route_hint.build_hint(route_hint.lookup_route(origin, destination))
+        except Exception:
+            hint_error = LOOKUP_DOWN
+        if hint is None and hint_error is None:
+            hint_error = LOOKUP_DOWN
+
     # 3. Transcribe (same settings as scripts/run_eval.py, so the demo matches the eval)
     with _model_lock:
         t_load = time.time()
         model = get_model()
         load_s = time.time() - t_load
         t0 = time.time()
-        segments, _info = model.transcribe(samples, language="en", beam_size=5)
+        segments, _info = model.transcribe(samples, language="en", beam_size=5, initial_prompt=hint)
         segments = list(segments)  # the real work happens here: segments is a lazy generator
         latency_s = time.time() - t0
 
@@ -297,7 +344,9 @@ def transcribe(
                      "noise_clip": NOISE_CLIP.stem} if simulate else None,
         "heard_wav_b64": heard_wav,                      # what the model heard (only when simulated)
         "denoise": {"requested": denoise, "applied": False},  # TODO: exp/denoise
-        "context": {"requested": context, "applied": False},  # TODO: exp/context (hint from journey)
+        "context": {"requested": context, "applied": hint is not None},
+        "hint": hint,
+        "hint_error": hint_error,
     }
 
 
@@ -383,6 +432,11 @@ def save_label(clip_id: str, body: dict):
 @app.get("/label")
 def label_page():
     return FileResponse(STATIC / "label.html")
+
+
+@app.get("/context")
+def context_page():
+    return FileResponse(STATIC / "context.html")
 
 
 @app.get("/demo")

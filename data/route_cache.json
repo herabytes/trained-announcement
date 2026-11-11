@@ -1,0 +1,79 @@
+{
+  "ladybank -> edinburgh": {
+    "origin": "Ladybank",
+    "destination": "Edinburgh",
+    "stations": [
+      "Ladybank",
+      "Markinch",
+      "Kirkcaldy",
+      "Inverkeithing",
+      "Haymarket",
+      "Edinburgh Waverley"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search (ScotRail/Northern timetables, Wikipedia), checked by the user; Gemini key had no quota"
+  },
+  "kyle of lochalsh -> inverness": {
+    "origin": "Kyle of Lochalsh",
+    "destination": "Inverness",
+    "stations": [
+      "Kyle of Lochalsh",
+      "Duirinish",
+      "Plockton",
+      "Duncraig",
+      "Stromeferry",
+      "Attadale",
+      "Strathcarron",
+      "Achnashellach",
+      "Achnasheen",
+      "Achanalt",
+      "Lochluichart",
+      "Garve",
+      "Dingwall",
+      "Conon Bridge",
+      "Muir of Ord",
+      "Beauly",
+      "Inverness"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search (ScotRail/Northern timetables, Wikipedia), checked by the user; Gemini key had no quota"
+  },
+  "london euston -> manchester piccadilly": {
+    "origin": "London Euston",
+    "destination": "Manchester Piccadilly",
+    "stations": [
+      "London Euston",
+      "Milton Keynes Central",
+      "Stoke-on-Trent",
+      "Macclesfield",
+      "Stockport",
+      "Manchester Piccadilly"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search (ScotRail/Northern timetables, Wikipedia), checked by the user; Gemini key had no quota"
+  },
+  "doncaster -> sheffield": {
+    "origin": "Doncaster",
+    "destination": "Sheffield",
+    "stations": [
+      "Doncaster",
+      "Conisbrough",
+      "Mexborough",
+      "Swinton",
+      "Rotherham Central",
+      "Meadowhall",
+      "Sheffield"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search (ScotRail/Northern timetables, Wikipedia), checked by the user; Gemini key had no quota"
+  },
+  "exeter st davids -> london paddington": {
+    "origin": "Exeter St Davids",
+    "destination": "London Paddington",
+    "stations": [
+      "Exeter St Davids",
+      "Tiverton Parkway",
+      "Taunton",
+      "Castle Cary",
+      "Reading",
+      "London Paddington"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search (ScotRail/Northern timetables, Wikipedia), checked by the user; Gemini key had no quota"
+  }
+}

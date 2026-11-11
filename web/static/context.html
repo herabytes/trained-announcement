@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Route hints explained</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<header><h1>Route hints (context)</h1>
+  <a href="/" style="color:#9cf">eval results</a> <a href="/demo" style="color:#9cf">live demo</a></header>
+<main style="max-width:760px">
+  <h2>What is a context hint?</h2>
+  <p>Text Whisper reads before it listens (its <code>initial_prompt</code>). It is not an instruction: Whisper treats it as
+    "what was said just before", so it boosts the exact words and spellings in it. Put "Kirkcaldy" in the hint and
+    "Kirkcaldy" is far more likely to come out, instead of "Capote".</p>
+
+  <h2>Why route-based beats a generic list</h2>
+  <p>A good hint is short, exact and relevant. Research suggests roughly 20 to 100 tokens. Our generic list of station
+    names was 205 tokens, mostly stations that are nowhere near your train. A route hint is only the stations on your
+    journey, written like an announcement: <em>"Calling at Ladybank, Markinch, Kirkcaldy, Inverkeithing, Haymarket and Edinburgh Waverley."</em></p>
+
+  <h2>How it works</h2>
+  <p>Journey (from, to) &rarr; look up the stations on the route <b>once, when boarding</b> (while you have signal)
+    &rarr; cache them &rarr; every announcement on the trip uses the cached hint, <b>offline</b>.
+    Preset journeys are already cached; a new journey needs a live lookup, which can fail (the demo then says so and
+    transcribes without a hint).</p>
+
+  <h2>Findings so far</h2>
+  <h3>No hint vs generic hint (20 clips)</h3>
+  <ul>
+    <li>Human announcements: median WER 0.45 &rarr; 0.32. Automated: median 0.15 &rarr; 0.15.</li>
+    <li>Risk: on non-speech the hint can be written out as if it had been spoken (fs44974).</li>
+  </ul>
+  <div id="generic" class="muted">loading…</div>
+  <h3>No hint / generic / route hint (6 clips)</h3>
+  <div id="route" class="muted">loading…</div>
+</main>
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+async function show(id, run) {
+  const el = document.getElementById(id);
+  try {
+    const r = await fetch("/api/runs/" + run);
+    const d = r.ok ? (await r.json()).summary : null;
+    if (!d || !d.models) throw 0;
+    el.innerHTML = "<table><tr><th>Model / condition<th>Clips<th>Mean WER<th>Human<th>Automated</tr>" +
+      Object.entries(d.models).map(([m, v]) => {
+        const k = v.by_kind || {}, f = x => x && x.mean_wer != null ? x.mean_wer.toFixed(2) : "-";
+        return `<tr><td>${esc(m)}<td>${v.n_clips}<td>${v.mean_wer == null ? "-" : v.mean_wer.toFixed(2)}<td>${f(k.human_announcement)}<td>${f(k.automated_announcement)}</tr>`;
+      }).join("") + "</table>";
+  } catch (e) { el.textContent = "pending"; }
+}
+show("generic", "2026-11-11_context_vs_base");
+show("route", "2026-11-11_route_hint");
+</script>
+</body></html>
