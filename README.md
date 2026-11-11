@@ -92,6 +92,7 @@ Note: the normaliser deletes `[inaudible]`, so any words a model writes in a gap
 - **Some references are imperfect:** where a model draft couldn't be confirmed by listening it was deleted (e.g. the opening of `fs65805`); `fs638928`'s place name is unknown and kept as heard ("Lutzenkinsen"), so that word's score is unreliable.
 - **Trim clips to the announcement (endpointing):** hallucinations appear in the non-speech stretches before and after the announcement, so trimming should cut them as well as latency.
 - **Route-aware contextual biasing:** build the model's hint from the passenger's journey (the train's calling points), instead of a generic UK-rail list.
+- **LLM post-correction, if context hints aren't enough:** a small language model with railway knowledge repairs the transcript ("call to" → "couple to", see `ai.md`). It costs memory and latency on a phone, so static context hints come first; this is the escalation if they fail.
 - Next: streaming transcription, chime/ping activation, key-fact scoring (platform, delay…), denoising front-ends, more accents.
 
 ## Data & licences

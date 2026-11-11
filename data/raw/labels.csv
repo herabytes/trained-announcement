@@ -2,7 +2,7 @@ clip_id,kind,keep,seg_start,seg_end,transcript,station,platform,time,delay_min,s
 fs106210,automated_announcement,no,,,,,,,,,,,,,,2026-11-11T13:04:54+00:00
 fs208039,automated_announcement,no,,,"Please do not leave cases or parcels unattended anywhere on the station. Any unattended articles are likely to be removed without warning. Ladies and gentlemen, please be advised that there are regular revenue protection inspections at this station. Please always remember to touch in and out with your Oyster card and to ensure that you have a valid ticket before you travel.",,,,,,,,,,whisper-small-int8,2026-11-11T13:06:14+00:00
 fs267700,human_announcement,yes,0,5,The train is being held at a red signal- be on the move shortly,,,,,other,,,med,"transcript = Freesound description, verified verbatim by user (listened). Tube, Westminster-Green Park, iPod touch recording",,2026-11-11T12:52:58+00:00
-fs277754,human_announcement,no,,,All passengers please take care [inaudible] very [inaudible] the doors [inaudible],,,,,,,,,,,2026-11-11T13:08:52+00:00
+fs277754,human_announcement,no,,,"All passengers, please take care. The unit is about to couple to the rear of this train. The doors will be reopened immediately. Thank you.",,,,,,,,,,whisper-large-v3-turbo-int8,2026-11-11T15:23:08+00:00
 fs40156,human_announcement,no,,,,,,,,,,,,,,2026-11-11T13:09:39+00:00
 fs408177,mixed,no,,,,,,,,,,,,,,2026-11-11T13:28:06+00:00
 fs43945,automated_announcement,no,,,"Platform 5 for the 1603 1st Great Western Service to London Paddington. Calling at Tibetan Parkway, Taunton, Reading and London Paddington. A restaurant service is available on this train. Platform 5 for the 1603 1st Great Western Service to London Paddington.",,,,,,,,,,whisper-small-int8,2026-11-11T13:11:05+00:00
@@ -12,7 +12,7 @@ fs44008,automated_announcement,no,,,The next train to depart from Platform 4 is 
 fs44974,automated_announcement,no,,,The train at platform 16 is the 1328 SW train serviced to Windsor and Eaton Riverside. Calling at [inaudible] Richmond Ashford Sunnymead and Windsor and Eaton Reiverside. Passengers for ... Please ensure [inaudible],,,,,,,,med,,whisper-small-int8,2026-11-11T13:38:40+00:00
 fs506795,automated_announcement,no,,,"The next train at Platform 1 is the 1436 Scott Rail service to Glasgow Central. Calling out Irvin, [inaudible], and Glasgow Central.",,,,,,,,,,whisper-large-v3-turbo-int8,2026-11-11T13:33:46+00:00
 fs533718,automated_announcement,no,202,240,,,,,,,,,,,whisper-large-v3-turbo-int8,2026-11-11T13:35:59+00:00
-fs55857,human_announcement,no,,,[inaudible] Northern Train Service to [inaudible] Platform 8.,,,,,,,,,,,2026-11-11T13:40:30+00:00
+fs55857,human_announcement,no,,,"Platform 8 [inaudible] Northern Train Service to Adwick, calling at Bentley, and Adwick. Platform 8.",,,,,,,,,,,2026-11-11T15:27:44+00:00
 fs62314,human_announcement,no,,,First class is at the front.,,,,,,,,,,whisper-large-v3-turbo-int8,2026-11-11T13:40:48+00:00
 fs638928,human_announcement,no,,,"We're now approaching Lutzenkinsen [inaudible] make sure you have all your documents with you, and take care when stepping up the train to the platform. Lutzenkinsen station [inaudible]",,,,,,,,,,whisper-small-int8,2026-11-11T13:41:45+00:00
 fs646162,human_announcement,no,,,,,,,,,,,,im not trained on scottish accents bro but it got most of it,,2026-11-11T13:42:42+00:00
