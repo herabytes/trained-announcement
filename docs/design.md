@@ -77,3 +77,6 @@ The denoising experiment
 Simple EQ-style spectral gater just to tone down the noise, a bit like whatever Audacity does to learn the noise profile. On trains this is the engine hum, and the clanking. `noisereduce` is a small library that does the job.
 
 The experiment is to run the same thing but with the denoising step. We see WER change and latency change. Then we can conclude something.
+
+The better experiment is definitely giving it place name and train lingo bias. Might need to pull data from this.
+We currently just plug 'context' into Whisper-small-context with some common phrases and place names, relative to UK rail. Realistically this would pull from the passenger's train info input.

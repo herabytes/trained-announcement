@@ -73,6 +73,8 @@ Reference: "The train is being held at a red signal- be on the move shortly". Pa
 <!-- TODO: fill in -->
 - Announcements with **long pauses** aren't handled: we don't yet detect when an announcement has really ended (endpointing).
 - Small dataset, hand-labelled; accents/noise not yet balanced.
+- **Most clips are real recordings, but not phone recordings**: Freesound field recordings mostly made on dedicated recorders (Zoom H1/H4/H4N, Olympus + condenser mics, binaural mics, minidisc); only 2 on consumer devices (iPod touch, smartphone). Freesound's auto-classifier files some under Speech > Processed / Synthetic. Real passenger phone audio is mono, compressed and noisier, so these results are likely **optimistic**.
+- **Route-aware contextual biasing:** build the model's hint from the passenger's journey (the train's calling points), instead of a generic UK-rail list.
 - Next: streaming transcription, chime/ping activation, key-fact scoring (platform, delay…), denoising front-ends, more accents.
 
 ## Data & licences

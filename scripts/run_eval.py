@@ -61,8 +61,19 @@ class WhisperSmall:
         return " ".join(segment.text.strip() for segment in segments)
 
 
+class WhisperLargeTurbo(WhisperSmall):
+    """~800M params: NOT phone-sized. Used to draft reference transcripts for labelling
+    (you still listen + correct), and as an upper-bound comparison."""
+    name = "whisper-large-v3-turbo-int8"
+
+    def __init__(self):
+        from faster_whisper import WhisperModel
+        self.model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8")
+
+
 # Short names you can pass on the command line: --models parakeet whisper-small
-AVAILABLE_MODELS = {"parakeet": Parakeet, "whisper-small": WhisperSmall}
+AVAILABLE_MODELS = {"parakeet": Parakeet, "whisper-small": WhisperSmall,
+                    "whisper-large-turbo": WhisperLargeTurbo}
 
 
 def read_csv_by_id(csv_path: Path) -> dict:
@@ -130,6 +141,7 @@ def main():
         print(f"loaded {model.name} in {time.time() - load_start:.1f}s")
 
         wers_for_this_model = []
+        wers_by_kind = {}       # e.g. {"human_announcement": [0.43, ...], "automated_announcement": [...]}
         for clip_id, audio_samples, label in clips:
             # 3a. Transcribe, timing only the model call (= transcription latency)
             transcribe_start = time.time()
@@ -141,8 +153,9 @@ def main():
             reference_norm = normalise_text(reference) if reference else None
             hypothesis_norm = normalise_text(hypothesis)
             wer = score_wer(reference_norm, hypothesis_norm)
-            if wer is not None:
+            if wer is not None:  # every clip with a transcript is scored, whatever its kind
                 wers_for_this_model.append(wer)
+                wers_by_kind.setdefault(label.get("kind") or "unlabelled", []).append(wer)
 
             # 3c. Record everything about this (clip, model) pair
             candidate = candidates.get(clip_id, {})
@@ -172,8 +185,12 @@ def main():
             "n_clips": len(clips),
             "n_with_reference": len(wers_for_this_model),
             "mean_wer": round(sum(wers_for_this_model) / len(wers_for_this_model), 4) if wers_for_this_model else None,
+            # Same score split by clip kind: do models find robot voices easier than humans?
+            "by_kind": {kind: {"n": len(ws), "mean_wer": round(sum(ws) / len(ws), 4)}
+                        for kind, ws in sorted(wers_by_kind.items())},
             "facts_correct": None, "facts_wrong": None, "facts_missing": None, "fact_score": None,
         }
+        print(f"  summary by kind: {summary_by_model[model.name]['by_kind']}")
 
     # --- 5. Save the three files the web frontend reads ------------------------------
     (run_dir / "predictions.jsonl").write_text("".join(json.dumps(p) + "\n" for p in predictions), encoding="utf-8")
