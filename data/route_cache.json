@@ -75,5 +75,48 @@
       "London Paddington"
     ],
     "source": "looked up 2026-11-11 by Claude Code with web search (ScotRail/Northern timetables, Wikipedia), checked by the user; Gemini key had no quota"
+  },
+  "plymouth -> london paddington": {
+    "origin": "Plymouth",
+    "destination": "London Paddington",
+    "stations": [
+      "Plymouth",
+      "Totnes",
+      "Newton Abbot",
+      "Exeter St Davids",
+      "Tiverton Parkway",
+      "Taunton",
+      "Castle Cary",
+      "Westbury",
+      "Reading",
+      "London Paddington"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search / timetable knowledge, for demo journeys; Gemini key had no credit"
+  },
+  "westminster -> green park": {
+    "origin": "Westminster",
+    "destination": "Green Park",
+    "stations": [
+      "Westminster",
+      "Green Park"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search / timetable knowledge, for demo journeys; Gemini key had no credit"
+  },
+  "london waterloo -> portsmouth harbour": {
+    "origin": "London Waterloo",
+    "destination": "Portsmouth Harbour",
+    "stations": [
+      "London Waterloo",
+      "Woking",
+      "Guildford",
+      "Godalming",
+      "Haslemere",
+      "Petersfield",
+      "Havant",
+      "Fratton",
+      "Portsmouth & Southsea",
+      "Portsmouth Harbour"
+    ],
+    "source": "looked up 2026-11-11 by Claude Code with web search / timetable knowledge, for demo journeys; Gemini key had no credit"
   }
 }
