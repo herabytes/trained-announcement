@@ -1,0 +1,92 @@
+{
+  "models": {
+    "whisper-small-int8": {
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.3883,
+      "median_wer": 0.3,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 5,
+          "mean_wer": 0.227,
+          "median_wer": 0.1538
+        },
+        "human_announcement": {
+          "n": 4,
+          "mean_wer": 0.5899,
+          "median_wer": 0.3643
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8+context": {
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.2921,
+      "median_wer": 0.1591,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 5,
+          "mean_wer": 0.1578,
+          "median_wer": 0.15
+        },
+        "human_announcement": {
+          "n": 4,
+          "mean_wer": 0.46,
+          "median_wer": 0.3643
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8+route": {
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.1946,
+      "median_wer": 0.1,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 5,
+          "mean_wer": 0.0835,
+          "median_wer": 0.0769
+        },
+        "human_announcement": {
+          "n": 4,
+          "mean_wer": 0.3335,
+          "median_wer": 0.2643
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8+route+lingo": {
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.179,
+      "median_wer": 0.0952,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 5,
+          "mean_wer": 0.0544,
+          "median_wer": 0.0769
+        },
+        "human_announcement": {
+          "n": 4,
+          "mean_wer": 0.3346,
+          "median_wer": 0.3143
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    }
+  }
+}

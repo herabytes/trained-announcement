@@ -1,20 +1,20 @@
 {
   "models": {
     "whisper-small-int8": {
-      "n_clips": 6,
-      "n_with_reference": 6,
-      "mean_wer": 0.3852,
-      "median_wer": 0.2295,
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.3581,
+      "median_wer": 0.3,
       "by_kind": {
         "automated_announcement": {
-          "n": 3,
-          "mean_wer": 0.2524,
+          "n": 5,
+          "mean_wer": 0.2481,
           "median_wer": 0.1538
         },
         "human_announcement": {
-          "n": 3,
-          "mean_wer": 0.5181,
-          "median_wer": 0.3
+          "n": 4,
+          "mean_wer": 0.4957,
+          "median_wer": 0.3643
         }
       },
       "facts_correct": null,
@@ -23,20 +23,20 @@
       "fact_score": null
     },
     "whisper-small-int8+context": {
-      "n_clips": 6,
-      "n_with_reference": 6,
-      "mean_wer": 0.3251,
-      "median_wer": 0.2112,
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.2863,
+      "median_wer": 0.1591,
       "by_kind": {
         "automated_announcement": {
-          "n": 3,
-          "mean_wer": 0.1797,
-          "median_wer": 0.1538
+          "n": 5,
+          "mean_wer": 0.1473,
+          "median_wer": 0.15
         },
         "human_announcement": {
-          "n": 3,
-          "mean_wer": 0.4705,
-          "median_wer": 0.3
+          "n": 4,
+          "mean_wer": 0.46,
+          "median_wer": 0.3643
         }
       },
       "facts_correct": null,
@@ -45,20 +45,20 @@
       "fact_score": null
     },
     "whisper-small-int8+route": {
-      "n_clips": 6,
-      "n_with_reference": 6,
-      "mean_wer": 0.1554,
-      "median_wer": 0.0885,
+      "n_clips": 9,
+      "n_with_reference": 9,
+      "mean_wer": 0.189,
+      "median_wer": 0.1364,
       "by_kind": {
         "automated_announcement": {
-          "n": 3,
-          "mean_wer": 0.0256,
-          "median_wer": 0.0
+          "n": 5,
+          "mean_wer": 0.0835,
+          "median_wer": 0.0769
         },
         "human_announcement": {
-          "n": 3,
-          "mean_wer": 0.2851,
-          "median_wer": 0.1364
+          "n": 4,
+          "mean_wer": 0.321,
+          "median_wer": 0.2825
         }
       },
       "facts_correct": null,

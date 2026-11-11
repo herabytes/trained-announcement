@@ -104,6 +104,20 @@ class WhisperSmallRoute(WhisperSmall):
         return " ".join(segment.text.strip() for segment in segments)
 
 
+class WhisperSmallRouteLingo(WhisperSmallRoute):
+    """Route hint + one short line of generic rail lingo (no station names, no numbers).
+    The lingo phrases are standard UK announcement wording, chosen AFTER seeing the clips (disclosed)."""
+    name = "whisper-small-int8+route+lingo"
+    uses_route_hint = True
+
+    LINGO = " Platform. The next station is. This train is for. Change here for. Please mind the gap."
+
+    def __call__(self, audio_samples, hint=None):
+        segments, _info = self.model.transcribe(audio_samples, language="en", beam_size=5,
+                                                initial_prompt=(hint or "") + self.LINGO)
+        return " ".join(segment.text.strip() for segment in segments)
+
+
 class WhisperLargeTurbo(WhisperSmall):
     """~800M params: NOT phone-sized. Used to draft reference transcripts for labelling
     (you still listen + correct), and as an upper-bound comparison."""
@@ -118,6 +132,7 @@ class WhisperLargeTurbo(WhisperSmall):
 AVAILABLE_MODELS = {"parakeet": Parakeet, "whisper-small": WhisperSmall,
                     "whisper-small-context": WhisperSmallWithContext,
                     "whisper-small-route": WhisperSmallRoute,
+                    "whisper-small-route-lingo": WhisperSmallRouteLingo,
                     "whisper-large-turbo": WhisperLargeTurbo}
 
 
