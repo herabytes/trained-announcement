@@ -37,7 +37,7 @@ Method: what makes a good transcription? Words. Downstream for trains specifical
 - We use a generic list of rail lingo, e.g. *Edinburgh Waverley, ScotRail, "Change here for"*
 - We use origin and destination stations to search up stations it might pass on the specific journey.
 - Results
--  the generic and route medians are close (0.16 vs 0.14), but route wins in terms of place names not in generic list (Plockton, Kirkcaldy, Inverkeithing, Tiverton), and didn't made any clip worse (0 regressed)
+-  the generic and route medians are close (0.16 vs 0.14), but route wins in terms of place names not in generic list (Plockton, Kirkcaldy, Inverkeithing...), and didn't made any clip worse (0 regressed)
 - Context helps, but can produce plausible station names it couldn't hear (`fs317554`: "Swinton", p = 0.03). It didn't invent stations where there were none (`fs267700`). Word confidence flags some of these, but not reliably (PR #9).
 - Having a hint also added a median latency of 0.5s in general, but helps in once case where Whisper was lost retrying without it (clip id fs317554)
 - generic + route → happy-ish: median 0.095 vs 0.10 for route alone. It fixes the platform one (`fs44007`: "platform 6" + "London Paddington"; route alone said "back on 6th"). The one "worse" clip is Plockton: it still says **Plockton** and only dropped the filler "we're now", but WER still counts that as worse. **This is why we need key-fact scoring:** WER treats "we're" the same as the station name. (Lingo phrases picked after seeing the clips, so optimistic.) `results/2026-11-11_route_lingo`
@@ -60,7 +60,7 @@ I also can eliminate the live station search with static data because a train st
 | `web/` → `/demo` | **The product demo**: journey → play or speak an announcement → live transcript (optionally through a simulated train PA) |
 | `scripts/download_data.py` | Re-downloads the dataset (real announcement recordings from Freesound + train noise) |
 | `web/` → `/label` | Labelling page: listen, mark the announcement segment, write the reference transcript |
-| `scripts/route_hint.py` | Journey → stations on the route (cached; live lookup via `deploy/route_lookup.py` on Modal) → Whisper hint "Calling at A, B and C." |
+| `scripts/route_hint.py` | Journey → stations on the route (static: `data/route_cache.json`) → Whisper hint "Calling at A, B and C." The demo does **no live lookup**: journeys not in the static file get a partial hint of just origin and destination. A static station/timetable database is planned to replace the file; `deploy/route_lookup.py` (Modal) was an unmaintained experiment. |
 | `scripts/run_eval.py` | Runs ASR models over the clips, scores WER against your labels, times transcription |
 | `web/` → `/` | Results viewer: per-model summary, per-clip transcripts vs reference |
 
@@ -84,7 +84,7 @@ uv run scripts/run_eval.py --run-id my_run --clips fs267700     # one clip
 ```
 
 **Where to look, in order** (after `uv run web/app.py --demo`):
-1. **http://127.0.0.1:8000/demo**: the product. Pick Plockton, then in Analysis tick *Compare with vs without route hint*.
+1. **http://127.0.0.1:8000/demo**: the product. The flow: **select a route** (e.g. a preset journey chip, or pick Plockton), play an announcement, then switch on **Analysis** and **Compare** to explore the context hint: each card shows the transcript with vs without the route hint, which words it changed, the WER for each, and the latency for each (what the hint costs in time).
 2. **http://127.0.0.1:8000/**: the results viewer: baseline per clip, every model side by side.
 3. **http://127.0.0.1:8000/regressions**: no hint → route hint, per clip, with a pass/fail gate.
 4. **http://127.0.0.1:8000/context**: how the route hint works.
