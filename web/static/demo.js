@@ -334,7 +334,9 @@ function renderClips() {
   const option = c => {
     const name = (c.title || c.clip_id).replace(/\.(wav|mp3|flac)$/i, "");
     const start = +c.seg_start || 0, end = c.seg_end ? +c.seg_end : secs(c.duration);  // length the model hears
-    return `<option value="${esc(c.clip_id)}">${esc(name)} (${mmss(end == null ? null : end - start)}) · ${esc(c.clip_id)}</option>`;
+    // Clips without a human reference are still worth demoing; just flag that there's no WER for them.
+    const noRef = c.reference ? "" : " (⚠ no ground truth)";
+    return `<option value="${esc(c.clip_id)}">${esc(name)} (${mmss(end == null ? null : end - start)}) · ${esc(c.clip_id)}${noRef}</option>`;
   };
   const byRec = (a, b) => { const i = x => RECOMMENDED.includes(x.clip_id) ? RECOMMENDED.indexOf(x.clip_id) : 1e9; return i(a) - i(b); };
   const keep = $("clip").value;

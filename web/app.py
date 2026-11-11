@@ -211,12 +211,11 @@ PARTIAL_NOTE = "couldn't look up the stations in between, so the hint uses only 
 
 
 def route_stations(origin: str, destination: str) -> tuple[list[str], bool]:
-    """Stations on the route, and whether that list is partial. If the lookup fails (offline, or a
-    journey that isn't cached), we still know both ends, so the hint falls back to just those two."""
-    try:
-        stations = route_hint.lookup_route(origin, destination)
-    except Exception:
-        stations = None
+    """Stations on the route, and whether that list is partial. Static only: the routes in
+    data/route_cache.json. No live lookup (the Modal endpoint isn't maintained; a static station
+    database is planned). For any other journey we still know both ends, so the hint is just those two."""
+    entry = route_hint._load_cache().get(route_hint._key(origin, destination))
+    stations = entry["stations"] if entry else None
     return (stations, False) if stations else ([origin, destination], True)
 
 

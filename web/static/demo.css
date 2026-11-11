@@ -96,8 +96,14 @@ body.analysis .tech{display:block}
 .side .opt{display:block;margin:8px 0;font-size:14px}
 .side .opt select{display:block;margin-top:4px;width:100%}
 .off{color:#9aa3b5}.off em{font-size:11px;background:#eef1f5;padding:1px 6px;border-radius:4px;font-style:normal}
-#failures{border-collapse:collapse;font-size:13px}
-#failures td,#failures th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+/* Evidence panel: collapsed by default, no shadow, small muted text */
+.panel.quiet{background:transparent;box-shadow:none;border:1px solid var(--line);padding:10px 14px}
+.quiet summary{cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--soft);font-weight:600}
+.quiet summary span{text-transform:none;letter-spacing:0;font-weight:400;margin-left:6px;color:#9aa3b5}
+.quiet[open] summary{margin-bottom:8px}
+#failures{border-collapse:collapse;font-size:12px;color:var(--soft)}
+#failures td,#failures th{border-bottom:1px solid var(--line);padding:4px 5px;text-align:left;vertical-align:top}
+#failures th{font-weight:600}
 #failures a{cursor:pointer;text-decoration:underline}
 #failures .missing{color:#aab}
 footer{text-align:center;color:var(--soft);font-size:12px;padding:10px 0 24px}

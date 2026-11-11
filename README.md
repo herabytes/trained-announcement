@@ -28,7 +28,7 @@ The hard parts:
 | `web/` → `/demo` | **The product demo**: journey → play or speak an announcement → live transcript (optionally through a simulated train PA) |
 | `scripts/download_data.py` | Re-downloads the dataset (real announcement recordings from Freesound + train noise) |
 | `web/` → `/label` | Labelling page: listen, mark the announcement segment, write the reference transcript |
-| `scripts/route_hint.py` | Journey → stations on the route (cached; live lookup via `deploy/route_lookup.py` on Modal) → Whisper hint "Calling at A, B and C." |
+| `scripts/route_hint.py` | Journey → stations on the route (static: `data/route_cache.json`) → Whisper hint "Calling at A, B and C." The demo does **no live lookup**: journeys not in the static file get a partial hint of just origin and destination. A static station/timetable database is planned to replace the file; `deploy/route_lookup.py` (Modal) was an unmaintained experiment. |
 | `scripts/run_eval.py` | Runs ASR models over the clips, scores WER against your labels, times transcription |
 | `web/` → `/` | Results viewer: per-model summary, per-clip transcripts vs reference |
 
