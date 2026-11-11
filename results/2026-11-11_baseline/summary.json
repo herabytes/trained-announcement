@@ -1,0 +1,42 @@
+{
+  "models": {
+    "parakeet-tdt-0.6b-v3-int8": {
+      "n_clips": 19,
+      "n_with_reference": 19,
+      "mean_wer": 0.5632,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 9,
+          "mean_wer": 0.2797
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.8185
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8": {
+      "n_clips": 19,
+      "n_with_reference": 19,
+      "mean_wer": 0.5706,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 9,
+          "mean_wer": 0.2048
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.8999
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    }
+  }
+}

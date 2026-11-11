@@ -25,6 +25,7 @@ The hard parts:
 
 | Part | What it does |
 |---|---|
+| `web/` → `/demo` | **The product demo**: journey → play or speak an announcement → live transcript (optionally through a simulated train PA) |
 | `scripts/download_data.py` | Re-downloads the dataset (real announcement recordings from Freesound + train noise) |
 | `web/` → `/label` | Labelling page: listen, mark the announcement segment, write the reference transcript |
 | `scripts/run_eval.py` | Runs ASR models over the clips, scores WER against your labels, times transcription |
@@ -41,6 +42,7 @@ python scripts/download_data.py --no-demand   # ~45 MB of Freesound clips (drop 
 ## Run
 
 ```bash
+uv run web/app.py --demo     # live demo       → http://127.0.0.1:8000/demo   (start here)
 uv run web/app.py            # results viewer  → http://127.0.0.1:8000
 uv run web/app.py --label    # labelling page  → http://127.0.0.1:8000/label
 
@@ -48,7 +50,9 @@ uv run scripts/run_eval.py --run-id my_run                      # all announceme
 uv run scripts/run_eval.py --run-id my_run --clips fs267700     # one clip
 ```
 
-First eval run downloads the models (Parakeet TDT 0.6B v3 int8, Whisper Small int8).
+The first transcription downloads Whisper Small (~500 MB, one-off); the first eval run also downloads Parakeet TDT 0.6B v3 int8.
+
+**Demo:** type your journey, then either pick a recorded announcement (Recommended clips first) and press *Transcribe this clip*, or press **● Record**, read an announcement aloud, and **■ Stop**. Tick *Simulate train* to hear your voice through a PA speaker with carriage noise, and see what the model makes of it. Allow microphone access when the browser asks.
 
 ## How the eval works
 
@@ -60,7 +64,20 @@ First eval run downloads the models (Parakeet TDT 0.6B v3 int8, Whisper Small in
 
 ## Results so far
 
-<!-- TODO: update after labelling + full run -->
+### Baseline (19 hand-labelled clips: 10 human, 9 automated)
+
+| WER (lower = better) | automated (9) | human (10) | median time per clip (laptop CPU) |
+|---|---|---|---|
+| Parakeet TDT 0.6B v3 int8 (phone-sized) | 0.28 | **0.82** | 2.4 s |
+| Whisper Small int8 (phone-sized) | 0.20 | **0.90** | 7.4 s |
+| Whisper large-v3-turbo int8 (~3× bigger) | **0.16** | **0.92** | 21.3 s |
+
+- **Human announcements are 3–5× harder** than automated ones for every model.
+- **A bigger model helps on automated voices, not on human ones**, and is ~9× slower than Parakeet. Moving up a model size is not the fix.
+- Small sample (19 clips): read per-clip results in the viewer, not just averages; one wild clip can move a mean a lot. Runs: `results/2026-11-11_baseline`, `results/2026-11-11_baseline_large`.
+
+### Example
+
 | Clip | Model | Output | WER |
 |---|---|---|---|
 | `fs267700` (Tube driver, iPod recording) | Parakeet TDT 0.6B v3 int8 | "Surely." | 1.00 |
@@ -68,13 +85,31 @@ First eval run downloads the models (Parakeet TDT 0.6B v3 int8, Whisper Small in
 
 Reference: "The train is being held at a red signal- be on the move shortly". Parakeet transcribes a clean synthetic version of the same sentence perfectly, so the failure is the real-world audio, not the pipeline.
 
+### Failure examples (clip IDs)
+
+From the first full run over unsegmented clips (`results/2026-11-11_v0_all`, `results/2026-11-11_drafts_large`). Anecdotes, not yet measured rates.
+
+| Failure | Clips | What happened |
+|---|---|---|
+| Real-world channel breaks a small model | `fs267700` | Parakeet: "Surely." on the real recording; perfect on a clean synthetic version of the same sentence |
+| Hallucination in non-speech windows (before speech starts / after it ends) | `fs44974`, `fs65805`, `fs277754`, `fs533718` | Whisper writes fluent text that was never said: "Thank you for watching", "Let us know in the comments if you want more", "I don't know what I'm talking about" (repeated). Whisper large-v3-turbo: "Thank you. Thank you. Thank you." |
+| Audible to a human, invisible to models | `fs44974` | First 30 s of speech: Whisper rates it "not speech" (no_speech_prob 0.63) and outputs nothing; a standard VAD also finds no speech. A speech-detector trigger would miss this announcement entirely |
+| Silent failure | `fs317554`, `fs40156`, `fs95874` | Parakeet returns an empty transcript |
+| Place names mangled | `fs65803`, `fs65806`, `fs646162` | Small models: "Kirkcaldy" → "Capote"/"Carcotti", "Edinburgh Waverley" → "Ember Wavelay". Whisper large-v3-turbo gets some right. Hypothesis only: needs a place-name score across many UK stations |
+
+Note: the normaliser deletes `[inaudible]`, so any words a model writes in a gap the labeller couldn't hear count as insertions, even if the model heard correctly. A human-labelled eval can't measure better-than-human hearing.
+
 ## Limitations & what's next
 
 <!-- TODO: fill in -->
 - Announcements with **long pauses** aren't handled: we don't yet detect when an announcement has really ended (endpointing).
 - Small dataset, hand-labelled; accents/noise not yet balanced.
 - **Most clips are real recordings, but not phone recordings**: Freesound field recordings mostly made on dedicated recorders (Zoom H1/H4/H4N, Olympus + condenser mics, binaural mics, minidisc); only 2 on consumer devices (iPod touch, smartphone). Freesound's auto-classifier files some under Speech > Processed / Synthetic. Real passenger phone audio is mono, compressed and noisier, so these results are likely **optimistic**.
+- **Old recordings:** most Freesound clips are from its early years (roughly 2007–2010 judging by upload IDs; one description says August 2002), made with older recorders. Some clips with plenty of audible speech (e.g. `fs44974`) are judged "not speech" by every model and by a standard voice-activity detector. Newer passenger phone recordings (YouTube/TikTok, licensing permitting) would be more representative, and probably cleaner.
+- **Some references are imperfect:** where a model draft couldn't be confirmed by listening it was deleted (e.g. the opening of `fs65805`); `fs638928`'s place name is unknown and kept as heard ("Lutzenkinsen"), so that word's score is unreliable.
+- **Trim clips to the announcement (endpointing):** hallucinations appear in the non-speech stretches before and after the announcement, so trimming should cut them as well as latency.
 - **Route-aware contextual biasing:** build the model's hint from the passenger's journey (the train's calling points), instead of a generic UK-rail list.
+- **LLM post-correction, if context hints aren't enough:** a small language model with railway knowledge repairs the transcript ("call to" → "couple to", see `ai.md`). It costs memory and latency on a phone, so static context hints come first; this is the escalation if they fail.
 - Next: streaming transcription, chime/ping activation, key-fact scoring (platform, delay…), denoising front-ends, more accents.
 
 ## Data & licences

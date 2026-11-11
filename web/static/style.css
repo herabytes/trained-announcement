@@ -16,3 +16,12 @@ th{background:#eee}
 .v-wrong{background:#ff8a8a;font-weight:700}.v-not_applicable{color:#999}
 .del{background:#fcc;text-decoration:line-through}.ins{background:#cdf}
 .warn{color:#a60}
+/* per-clip comparison view */
+#runs{font-size:13px} .runchk{margin-right:8px;white-space:nowrap}
+.clip{background:#fff;border:1px solid #ddd;border-radius:6px;padding:10px 14px;margin:12px 0}
+.cliphead{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.cliphead audio{height:30px;margin-left:auto}
+.tag{background:#e6eefc;border-radius:3px;padding:0 6px;font-size:12px}
+.ref{margin:8px 0;padding:6px 10px;background:#f4f6f8;border-left:3px solid #889}
+table.cmp{width:100%;margin:0} table.cmp td:first-child{white-space:nowrap;width:1%}
+.w-good{background:#d8f3dc}.w-mid{background:#fff1c2}.w-bad{background:#ffd0d0}

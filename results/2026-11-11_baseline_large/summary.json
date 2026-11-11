@@ -1,0 +1,23 @@
+{
+  "models": {
+    "whisper-large-v3-turbo-int8": {
+      "n_clips": 19,
+      "n_with_reference": 19,
+      "mean_wer": 0.5578,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 9,
+          "mean_wer": 0.1595
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.9163
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    }
+  }
+}

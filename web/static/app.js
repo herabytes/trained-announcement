@@ -1,82 +1,112 @@
+// Results viewer: one card per clip, one line per model, so models are easy to compare.
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt = (x, d = 3) => x == null ? "-" : (typeof x === "number" ? +x.toFixed(d) : x);
-const META_FILTERS = ["channel", "noise_level", "accent", "gender", "type", "source"];
-let preds = [], filters = {}, selected = null;
+const FILTERS = ["kind", "accent", "noise_level"];
+const KIND_ORDER = {human_announcement: 0, mixed: 1, automated_announcement: 2};
+let runs = [], checked = new Set(), preds = [], summaries = [], filters = {}, onlyScored = true;
 
 async function j(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + " " + r.status); return r.json(); }
 
 async function init() {
-  const runs = await j("/api/runs");
-  $("run").innerHTML = runs.map(r => `<option>${esc(r)}</option>`).join("");
-  $("run").onchange = () => loadRun($("run").value);
-  if (runs.length) loadRun(runs[0]); else $("summary").innerHTML = "<tr><td>No runs found in results/</td></tr>";
+  // Replace the single run dropdown with run checkboxes (several runs can be compared at once).
+  runs = (await j("/api/runs")).filter(r => r !== "mock");
+  const defaults = runs.filter(r => r.includes("baseline"));
+  (defaults.length ? defaults : runs.slice(-1)).forEach(r => checked.add(r));
+  const box = document.createElement("span"); box.id = "runs";
+  $("run").parentElement.replaceWith(box);
+  box.innerHTML = "Runs: " + runs.map(r =>
+    `<label class="runchk"><input type="checkbox" value="${esc(r)}"${checked.has(r) ? " checked" : ""}> ${esc(r)}</label>`).join(" ");
+  box.querySelectorAll("input").forEach(cb => cb.onchange = () => { cb.checked ? checked.add(cb.value) : checked.delete(cb.value); load(); });
+
+  const clipsDiv = document.createElement("div"); clipsDiv.id = "clips";
+  $("preds").replaceWith(clipsDiv);
+  if (!runs.length) { $("summary").innerHTML = "<tr><td>No runs found in results/</td></tr>"; return; }
+  await load();
 }
 
-async function loadRun(id) {
-  const [info, p] = await Promise.all([j("/api/runs/" + id), j(`/api/runs/${id}/predictions`)]);
-  preds = p; filters = {}; selected = null; $("detail").hidden = true;
-  const r = info.run || {};
-  $("runinfo").textContent = `${r.created_at || ""} | dataset ${r.dataset || "?"} | normalizer ${r.normalizer || "?"} | wrong weight ${r.fact_score_wrong_weight ?? "?"}${r.notes ? " | " + r.notes : ""}`;
-  const sm = (info.summary || {}).models || {};
-  $("summary").innerHTML = "<thead><tr><th>Model<th>Clips<th>Mean WER<th>Facts correct<th>Facts wrong<th>Facts missing<th>Fact score</tr></thead><tbody>" +
-    Object.entries(sm).map(([m, s]) => `<tr><td>${esc(m)}<td>${s.n_clips}<td>${fmt(s.mean_wer)}<td>${s.facts_correct}<td>${s.facts_wrong}<td>${s.facts_missing}<td>${s.fact_score}</tr>`).join("") + "</tbody>";
-  buildFilters(); renderPreds();
+async function load() {
+  const ids = [...checked];
+  const data = await Promise.all(ids.map(id => Promise.all([j("/api/runs/" + id), j(`/api/runs/${id}/predictions`)])));
+  preds = []; summaries = [];
+  data.forEach(([info, p], i) => {
+    preds.push(...p.map(x => ({...x, run: ids[i]})));
+    for (const [model, s] of Object.entries((info.summary || {}).models || {})) summaries.push({model, run: ids[i], ...s});
+  });
+  $("runinfo").textContent = `${ids.length} run(s) selected`;
+  renderSummary(); buildFilters(); render();
+}
+
+function renderSummary() {
+  const byKind = (s, k) => { const d = (s.by_kind || {})[k]; return d ? `${fmt(d.mean_wer)} (${d.n})` : "-"; };
+  $("summary").innerHTML = "<thead><tr><th>Model<th>Run<th>Clips scored<th>Mean WER<th>WER human (n)<th>WER automated (n)</tr></thead><tbody>" +
+    summaries.map(s => `<tr><td>${esc(s.model)}<td class="muted">${esc(s.run)}<td>${s.n_with_reference ?? s.n_clips}<td>${fmt(s.mean_wer)}<td>${byKind(s, "human_announcement")}<td>${byKind(s, "automated_announcement")}</tr>`).join("") + "</tbody>";
 }
 
 function buildFilters() {
-  const defs = [["model", p => p.model], ...META_FILTERS.map(k => [k, p => (p.meta || {})[k]])];
   $("filters").innerHTML = "";
-  for (const [name, get] of defs) {
-    const o = [...new Set(preds.map(get).filter(v => v != null))].sort();
-    if (!o.length) continue;
+  for (const name of FILTERS) {
+    const opts = [...new Set(preds.map(p => (p.meta || {})[name]).filter(v => v != null))].sort();
+    if (!opts.length) continue;
     const sel = document.createElement("select");
-    sel.innerHTML = `<option value="">${name}: all</option>` + o.map(v => `<option>${esc(v)}</option>`).join("");
-    sel.onchange = () => { filters[name] = [sel.value, get]; renderPreds(); };
+    sel.innerHTML = `<option value="">${name}: all</option>` + opts.map(v => `<option${filters[name] === v ? " selected" : ""}>${esc(v)}</option>`).join("");
+    sel.onchange = () => { filters[name] = sel.value; render(); };
     $("filters").append(sel);
   }
+  const lbl = document.createElement("label");
+  lbl.innerHTML = `<input type="checkbox"${onlyScored ? " checked" : ""}> only clips with a reference`;
+  lbl.querySelector("input").onchange = e => { onlyScored = e.target.checked; render(); };
+  $("filters").append(lbl);
 }
 
-function renderPreds() {
-  const rows = preds.filter(p => Object.values(filters).every(([v, get]) => !v || String(get(p)) === v));
-  $("preds").innerHTML = "<thead><tr><th>Clip<th>Model<th>WER<th>Fact score<th>Wrong<th>Missing<th>Meta</tr></thead><tbody>" +
-    rows.map(p => {
-      const c = v => (p.facts || []).filter(f => f.verdict === v).length, m = p.meta || {};
-      return `<tr data-i="${preds.indexOf(p)}"${p === selected ? ' class="sel"' : ""}><td>${esc(p.clip_id)}<td>${esc(p.model)}<td>${fmt(p.wer)}<td>${p.fact_score}<td>${c("wrong")}<td>${c("missing")}<td class="muted">${esc([m.channel, m.noise_level, m.accent].filter(Boolean).join(" / "))}</tr>`;
-    }).join("") + "</tbody>";
-  $("preds").querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => { selected = preds[tr.dataset.i]; renderPreds(); showDetail(selected); });
-}
-
-// Word-level diff via LCS. Returns [refHtml, hypHtml].
-function diff(ref, hyp) {
-  const a = ref.split(/\s+/).filter(Boolean), b = hyp.split(/\s+/).filter(Boolean);
+// One-line word diff of what the model wrote vs what was said:
+// plain = matched, red/struck = said but missed, blue = written but not said.
+function inlineDiff(ref, hyp) {
+  if (!ref) return esc(hyp);
+  const a = ref.split(/\s+/).filter(Boolean), b = (hyp || "").split(/\s+/).filter(Boolean);
   const L = Array.from({length: a.length + 1}, () => new Array(b.length + 1).fill(0));
   for (let i = a.length - 1; i >= 0; i--) for (let k = b.length - 1; k >= 0; k--)
     L[i][k] = a[i] === b[k] ? L[i+1][k+1] + 1 : Math.max(L[i+1][k], L[i][k+1]);
-  const ra = [], rb = []; let i = 0, k = 0;
+  const out = []; let i = 0, k = 0;
   while (i < a.length || k < b.length) {
-    if (i < a.length && k < b.length && a[i] === b[k]) { ra.push(esc(a[i++])); rb.push(esc(b[k++])); }
-    else if (k >= b.length || (i < a.length && L[i+1][k] >= L[i][k+1])) ra.push(`<span class="del">${esc(a[i++])}</span>`);
-    else rb.push(`<span class="ins">${esc(b[k++])}</span>`);
+    if (i < a.length && k < b.length && a[i] === b[k]) { out.push(esc(a[i++])); k++; }
+    else if (k >= b.length || (i < a.length && L[i+1][k] >= L[i][k+1])) out.push(`<span class="del">${esc(a[i++])}</span>`);
+    else out.push(`<span class="ins">${esc(b[k++])}</span>`);
   }
-  return [ra.join(" "), rb.join(" ")];
+  return out.join(" ") || '<span class="muted">(empty output)</span>';
 }
 
-function showDetail(p) {
-  const [rh, hh] = diff(p.reference_norm ?? p.reference ?? "", p.hypothesis_norm ?? p.hypothesis ?? "");
-  const d = $("detail"); d.hidden = false;
-  d.innerHTML = `<h2>${esc(p.clip_id)} / ${esc(p.model)}</h2>
-    <p id="audiobox"><audio controls src="/audio/${encodeURI(p.audio_path || "")}"></audio></p>
-    <div class="cols">
-      <div class="box"><b>Reference</b><p>${esc(p.reference)}</p><p class="muted">Normalised (diff):</p><p>${rh}</p></div>
-      <div class="box"><b>Hypothesis</b><p>${esc(p.hypothesis)}</p><p class="muted">Normalised (diff):</p><p>${hh}</p></div>
-    </div>
-    <p>WER ${fmt(p.wer)} | fact score ${p.fact_score}</p>
-    <table><thead><tr><th>Field<th>Reference<th>Hypothesis<th>Verdict</tr></thead><tbody>${
-      (p.facts || []).map(f => `<tr class="v-${esc(f.verdict)}"><td>${esc(f.field)}<td>${esc(f.ref ?? "-")}<td>${esc(f.hyp ?? "-")}<td>${esc(f.verdict)}</tr>`).join("")}</tbody></table>
-    <details><summary>meta</summary><pre>${esc(JSON.stringify(p.meta, null, 1))}</pre></details>`;
-  d.querySelector("audio").onerror = () => { $("audiobox").innerHTML = '<span class="warn">Audio not available for this clip.</span>'; };
-  d.scrollIntoView({behavior: "smooth"});
+const werClass = w => w == null ? "" : w < 0.2 ? "w-good" : w < 0.5 ? "w-mid" : "w-bad";
+
+function render() {
+  // Group rows by clip, keeping models in the order they first appear.
+  const modelOrder = [...new Set(preds.map(p => p.model))];
+  const groups = new Map();
+  for (const p of preds) {
+    if (onlyScored && p.wer == null) continue;
+    if (!Object.entries(filters).every(([k, v]) => !v || String((p.meta || {})[k]) === v)) continue;
+    if (!groups.has(p.clip_id)) groups.set(p.clip_id, []);
+    groups.get(p.clip_id).push(p);
+  }
+  const clips = [...groups.entries()].sort(([a, pa], [b, pb]) =>
+    (KIND_ORDER[pa[0].meta?.kind] ?? 3) - (KIND_ORDER[pb[0].meta?.kind] ?? 3) || a.localeCompare(b));
+  // Same model in two selected runs -> show which run each line came from.
+  const dupModels = new Set(summaries.map(s => s.model).filter((m, i, all) => all.indexOf(m) !== i));
+
+  $("clips").innerHTML = clips.length ? clips.map(([clip, ps]) => {
+    const p0 = ps[0], m = p0.meta || {};
+    const rows = ps.sort((x, y) => modelOrder.indexOf(x.model) - modelOrder.indexOf(y.model)).map(p =>
+      `<tr><td>${esc(p.model)}${dupModels.has(p.model) ? `<div class="muted">${esc(p.run)}</div>` : ""}</td>
+        <td class="${werClass(p.wer)}">${fmt(p.wer, 2)}</td><td>${fmt(p.inference_s, 1)} s</td>
+        <td title="${esc(p.hypothesis)}">${inlineDiff(p.reference_norm, p.hypothesis_norm ?? p.hypothesis)}</td></tr>`).join("");
+    return `<div class="clip">
+      <div class="cliphead"><b>${esc(clip)}</b> <span class="tag">${esc((m.kind || "unlabelled").replace("_announcement", ""))}</span>
+        <span class="muted">${fmt(m.duration_s, 1)} s${m.accent ? " · " + esc(m.accent) : ""}${m.noise_level ? " · noise " + esc(m.noise_level) : ""}</span>
+        <audio controls preload="none" src="/audio/${encodeURI(p0.audio_path || "")}"></audio></div>
+      <div class="ref"><span class="muted">What was said:</span> ${esc(p0.reference ?? "(no reference)")}</div>
+      <table class="cmp"><thead><tr><th>Model<th>WER<th>Time<th>What it wrote <span class="muted">(<span class="del">missed</span> · <span class="ins">added</span>)</span></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }).join("") : '<p class="muted">No clips match.</p>';
 }
 
 init().catch(e => document.body.append("Error: " + e.message));
