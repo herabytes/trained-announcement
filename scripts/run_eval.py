@@ -17,6 +17,7 @@ Key facts are not scored yet (facts = [], fact_score = null).
 import argparse
 import csv
 import json
+import statistics
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -185,8 +186,11 @@ def main():
             "n_clips": len(clips),
             "n_with_reference": len(wers_for_this_model),
             "mean_wer": round(sum(wers_for_this_model) / len(wers_for_this_model), 4) if wers_for_this_model else None,
+            # Median = the middle clip: not dragged around by a few clips where a model invents lots of text.
+            "median_wer": round(statistics.median(wers_for_this_model), 4) if wers_for_this_model else None,
             # Same score split by clip kind: do models find robot voices easier than humans?
-            "by_kind": {kind: {"n": len(ws), "mean_wer": round(sum(ws) / len(ws), 4)}
+            "by_kind": {kind: {"n": len(ws), "mean_wer": round(sum(ws) / len(ws), 4),
+                               "median_wer": round(statistics.median(ws), 4)}
                         for kind, ws in sorted(wers_by_kind.items())},
             "facts_correct": None, "facts_wrong": None, "facts_missing": None, "fact_score": None,
         }

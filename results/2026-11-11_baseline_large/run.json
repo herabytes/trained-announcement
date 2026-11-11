@@ -1,6 +1,6 @@
 {
   "run_id": "2026-11-11_baseline_large",
-  "created_at": "2026-11-11T16:08:12+00:00",
+  "created_at": "2026-11-11T18:57:02+00:00",
   "dataset": "data/raw (Freesound announcements)",
   "models": [
     "whisper-large-v3-turbo-int8"

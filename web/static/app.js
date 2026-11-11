@@ -38,9 +38,11 @@ async function load() {
 }
 
 function renderSummary() {
-  const byKind = (s, k) => { const d = (s.by_kind || {})[k]; return d ? `${fmt(d.mean_wer)} (${d.n})` : "-"; };
-  $("summary").innerHTML = "<thead><tr><th>Model<th>Run<th>Clips scored<th>Mean WER<th>WER human (n)<th>WER automated (n)</tr></thead><tbody>" +
-    summaries.map(s => `<tr><td>${esc(s.model)}<td class="muted">${esc(s.run)}<td>${s.n_with_reference ?? s.n_clips}<td>${fmt(s.mean_wer)}<td>${byKind(s, "human_announcement")}<td>${byKind(s, "automated_announcement")}</tr>`).join("") + "</tbody>";
+  // "median / mean (n)": the median ignores the few clips where a model invents lots of text.
+  const mm = d => d ? `${fmt(d.median_wer, 2)} / ${fmt(d.mean_wer, 2)}${d.n != null ? ` (${d.n})` : ""}` : "-";
+  const byKind = (s, k) => mm((s.by_kind || {})[k]);
+  $("summary").innerHTML = "<thead><tr><th>Model<th>Run<th>Clips scored<th>WER all: median / mean<th>human: median / mean (n)<th>automated: median / mean (n)</tr></thead><tbody>" +
+    summaries.map(s => `<tr><td>${esc(s.model)}<td class="muted">${esc(s.run)}<td>${s.n_with_reference ?? s.n_clips}<td>${mm({median_wer: s.median_wer, mean_wer: s.mean_wer})}<td>${byKind(s, "human_announcement")}<td>${byKind(s, "automated_announcement")}</tr>`).join("") + "</tbody>";
 }
 
 function buildFilters() {
