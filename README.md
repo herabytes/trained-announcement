@@ -86,7 +86,7 @@ uv run scripts/run_eval.py --run-id my_run --clips fs267700     # one clip
 ```
 
 **Where to look, in order** (after `uv run web/app.py --demo`):
-1. **http://127.0.0.1:8000/demo**: the product. The flow: **select a route** (e.g. a preset journey chip, or pick Plockton), play an announcement, then switch on **Analysis** and **Compare** to explore the context hint: each card shows the transcript with vs without the route hint, which words it changed, the WER for each, and the latency for each (what the hint costs in time). Clips without station info (no journey) compare against the generic UK-rail list instead; with a journey, the route hint wins, since generic + route barely differs from route alone (median 0.095 vs 0.10).
+1. **http://127.0.0.1:8000/demo**: the product. The flow: **select a route** (e.g. a preset journey chip, or pick Plockton), play an announcement, then switch on **Analysis** and **Compare** to explore the context hint: each card shows the transcript with vs without the route hint, which words it changed, the WER for each, and the latency for each (what the hint costs in time). Clips without a journey are transcribed without a hint and do not run Compare; with a journey, Compare uses the route hint rather than generic + route, which barely differs from route alone in the evaluation (median WER 0.095 vs 0.10).
 2. **http://127.0.0.1:8000/**: the results viewer: baseline per clip, every model side by side.
 3. **http://127.0.0.1:8000/regressions**: no hint → route hint, per clip, with a pass/fail gate.
 4. **http://127.0.0.1:8000/context**: how the route hint works.
