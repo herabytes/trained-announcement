@@ -1,66 +1,66 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>trained-announcement: live demo</title>
+<html lang="en"><head><meta charset="utf-8"><title>Trained: catch the announcement you missed</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/demo.css"></head>
 <body>
-<header><h1>Catch the announcement you missed</h1>
-  <span class="muted">live demo, Whisper Small int8 on this computer</span>
-  <a href="/" style="color:#9cf">eval results →</a></header>
-<main class="demo">
+<header class="top">
+  <div class="brand">Trained<span>catch the announcement you missed</span></div>
+  <label class="switch" title="Show timings, model details and the evaluation evidence">
+    <input type="checkbox" id="analysis"> Analysis</label>
+</header>
 
-<section class="card">
-  <h2>1. Where are you going?</h2>
-  <div class="row">
-    <label>From <input id="from" placeholder="e.g. Edinburgh"></label>
-    <label>To <input id="to" placeholder="e.g. Kirkcaldy"></label>
-    <label>Operator <input id="operator" placeholder="e.g. ScotRail"></label>
-  </div>
-  <p class="muted">Sent with every request. Once the context hint lands, the route's station names will help the model spell place names.</p>
-</section>
+<div class="layout">
+<main>
 
-<section class="card">
-  <h2>2. Listen</h2>
-  <div class="row options">
-    <label><input type="checkbox" id="simulate"> Simulate train</label>
-    <label>noise level <select id="snr">
-      <option value="10">light (10 dB SNR)</option>
-      <option value="5" selected>medium (5 dB SNR)</option>
-      <option value="0">heavy (0 dB SNR)</option></select></label>
-    <label><input type="checkbox" id="pa" checked> PA speaker filter</label>
-    <label class="off" title="coming soon"><input type="checkbox" id="denoise" disabled> Denoise <em>coming soon</em></label>
-    <label class="off" title="coming soon"><input type="checkbox" id="context" disabled> Context hint <em>coming soon</em></label>
-  </div>
-  <div class="sources">
-    <div class="box">
-      <h3>a. Microphone</h3>
-      <p class="muted">Read an announcement out loud (or play one from another device).</p>
-      <button id="rec">● Record</button> <span id="recinfo" class="muted"></span>
-      <div><audio id="recaudio" controls hidden></audio></div>
-      <button id="recsend" hidden>Transcribe recording again</button>
+  <section class="panel journey">
+    <h2>Where are you going?</h2>
+    <div class="fields">
+      <input id="from" placeholder="From" aria-label="From">
+      <span class="arrow">→</span>
+      <input id="to" placeholder="To" aria-label="To">
+      <input id="operator" placeholder="Operator (optional)" aria-label="Operator">
     </div>
-    <div class="box">
-      <h3>b. Real recording from the dataset</h3>
-      <select id="clip"><option value="">loading clips…</option></select>
-      <div><audio id="clipaudio" controls preload="none"></audio></div>
-      <p id="clipinfo" class="muted"></p>
-      <button id="clipsend" disabled>Transcribe this clip</button>
+  </section>
+
+  <section class="panel listen">
+    <h2>Announcement</h2>
+    <div class="pick">
+      <select id="clip" aria-label="Announcement"><option value="">loading announcements…</option></select>
+      <button id="play" class="primary" disabled>▶ Play</button>
     </div>
-  </div>
-</section>
+    <div class="or"><span>or say one yourself</span></div>
+    <div class="mic">
+      <button id="rec" class="secondary">● Record</button>
+      <button id="simulate" class="ghost" disabled title="Record something first">Simulate my PA</button>
+      <span id="recinfo" class="hint"></span>
+    </div>
+  </section>
 
-<section class="card">
-  <h2>3. What was said</h2>
-  <div id="result"><p class="muted">Record something or pick a clip.</p></div>
-</section>
-
-<section class="card">
-  <h2>Evidence: where small models fail</h2>
-  <p class="muted">From the baseline eval (anecdotes, not yet measured rates). Click a clip id to load it above.
-    Full numbers: <a href="/">eval results</a>.</p>
-  <table id="failures"></table>
-</section>
+  <section id="result" class="result-area" aria-live="polite"></section>
 
 </main>
+
+<aside id="side" class="side" hidden>
+  <section class="panel">
+    <h2>Settings</h2>
+    <label class="opt">Train noise for "Simulate my PA"
+      <select id="snr">
+        <option value="10">light (10 dB SNR)</option>
+        <option value="5" selected>medium (5 dB SNR)</option>
+        <option value="0">heavy (0 dB SNR)</option></select></label>
+    <label class="opt"><input type="checkbox" id="pa" checked> PA speaker filter (300–3400 Hz)</label>
+    <label class="opt off"><input type="checkbox" id="denoise" disabled> Denoise <em>coming soon</em></label>
+    <label class="opt off"><input type="checkbox" id="context" disabled> Context hint from journey <em>coming soon</em></label>
+  </section>
+  <section class="panel">
+    <h2>Where small models fail</h2>
+    <p class="hint">From the baseline eval (anecdotes, not measured rates). Click a clip id to load it.
+      Full numbers: <a href="/">eval results</a>.</p>
+    <table id="failures"></table>
+  </section>
+</aside>
+</div>
+
+<footer><a href="/">eval results</a> · <a href="/label">labelling</a> · runs locally: Whisper Small int8 on this computer</footer>
 <script src="/static/demo.js"></script>
 </body></html>

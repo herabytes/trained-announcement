@@ -1,9 +1,10 @@
 # /// script
 # requires-python = ">=3.10,<3.13"
-# dependencies = ["fastapi", "uvicorn", "python-multipart", "faster-whisper", "av<14", "numpy"]
+# dependencies = ["fastapi", "uvicorn", "python-multipart", "faster-whisper", "av<14", "numpy", "whisper-normalizer"]
 # ///
 # python-multipart: lets FastAPI read file uploads (form-data). av<14: faster-whisper's audio
 # loader breaks on PyAV 14+. faster-whisper is only imported when /api/transcribe is first used.
+# whisper-normalizer: the same text normaliser scripts/run_eval.py scores with, so demo WER = eval WER.
 """ASR eval results viewer + clip labelling page + live demo.
 Run: uv run web/app.py [--port 8000] [--label | --demo]"""
 import base64
@@ -22,7 +23,7 @@ from pathlib import Path
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -109,6 +110,21 @@ def get_model():
     return _model
 
 
+_normaliser = None
+
+
+def normalise(text: str | None) -> str | None:
+    """Whisper's English normaliser, exactly as scripts/run_eval.py uses it: lowercase, drop punctuation
+    and [bracketed] text like [inaudible], "five" -> "5", British -> American spelling."""
+    global _normaliser
+    if text is None:
+        return None
+    if _normaliser is None:
+        from whisper_normalizer.english import EnglishTextNormalizer
+        _normaliser = EnglishTextNormalizer()
+    return _normaliser(text)
+
+
 def decode(source) -> np.ndarray:
     """Any audio PyAV can read (mp3, wav, flac, webm/opus from the browser...) -> 16 kHz mono float32."""
     from faster_whisper import decode_audio
@@ -145,19 +161,48 @@ def simulate_train(speech: np.ndarray, snr_db: float, pa_filter: bool) -> np.nda
     return mixed / peak * 0.95 if peak > 1 else mixed  # avoid clipping
 
 
-def wav_base64(x: np.ndarray) -> str:
-    """16 kHz float audio -> WAV file bytes -> base64 text, so the page can play what the model heard."""
+def wav_bytes(x: np.ndarray) -> bytes:
+    """16 kHz float audio -> the bytes of a WAV file (16-bit mono)."""
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)  # 16-bit samples
         w.setframerate(SAMPLE_RATE)
         w.writeframes((np.clip(x, -1, 1) * 32767).astype("<i2").tobytes())
-    return base64.b64encode(buf.getvalue()).decode("ascii")
+    return buf.getvalue()
+
+
+def wav_base64(x: np.ndarray) -> str:
+    """WAV bytes as base64 text, so a JSON response can carry the audio the model heard."""
+    return base64.b64encode(wav_bytes(x)).decode("ascii")
+
+
+def decode_upload(audio: UploadFile) -> tuple[np.ndarray, bytes]:
+    data = audio.file.read()
+    if not data:
+        raise HTTPException(400, "empty audio upload")
+    try:
+        return decode(io.BytesIO(data)), data
+    except Exception as e:
+        raise HTTPException(400, f"could not decode audio: {e}")
+
+
+@app.post("/api/simulate")
+def simulate_pa(audio: UploadFile = File(...), snr_db: float = Form(5.0), pa_filter: bool = Form(True)):
+    """Return the upload as it would sound through a train PA (WAV), without transcribing.
+    The demo plays this right after the original, then sends it to /api/transcribe."""
+    samples, _ = decode_upload(audio)
+    return Response(wav_bytes(simulate_train(samples, snr_db, pa_filter)), media_type="audio/wav")
+
+
+EXCLUDED_KINDS = ("noise_only", "unusable")  # same clips scripts/run_eval.py skips (keep the two in sync)
 
 
 def announcement_clips() -> dict:
-    return {k: v for k, v in raw_clips().items() if v["folder"] == "freesound_announcements"}
+    """Announcement clips the demo offers: the same set the eval scores."""
+    labels = read_labels()
+    return {k: v for k, v in raw_clips().items() if v["folder"] == "freesound_announcements"
+            and labels.get(k, {}).get("kind") not in EXCLUDED_KINDS}
 
 
 @app.get("/api/demo/clips")
@@ -194,13 +239,7 @@ def transcribe(
 
     # 1. Get the audio as a 16 kHz numpy array
     if audio is not None and audio.filename:
-        data = audio.file.read()
-        if not data:
-            raise HTTPException(400, "empty audio upload")
-        try:
-            samples = decode(io.BytesIO(data))
-        except Exception as e:
-            raise HTTPException(400, f"could not decode audio: {e}")
+        samples, data = decode_upload(audio)
         source = {"type": "upload", "filename": audio.filename, "bytes": len(data)}
     elif clip_id:
         clips = announcement_clips()
@@ -239,8 +278,12 @@ def transcribe(
         segments = list(segments)  # the real work happens here: segments is a lazy generator
         latency_s = time.time() - t0
 
+    text = " ".join(seg.text.strip() for seg in segments).strip()
     return {
-        "text": " ".join(seg.text.strip() for seg in segments).strip(),
+        "text": text,
+        # Both sides normalised exactly like the eval, so the page's diff and WER match run_eval.py.
+        "text_norm": normalise(text),
+        "reference_norm": normalise(source.get("reference")),
         "latency_s": round(latency_s, 2),               # model time only, like inference_s in the eval
         "total_s": round(time.time() - t_request, 2),   # whole request: decode + mix + model (+ load)
         "model_load_s": round(load_s, 2),               # > 0 only on the first request
@@ -358,4 +401,11 @@ if __name__ == "__main__":
     port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8000
     page = "/label" if "--label" in sys.argv else "/demo" if "--demo" in sys.argv else ""
     threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}{page}")).start()
+    if "--demo" in sys.argv:
+        # Load the model now, in the background, so the first demo transcription isn't slowed by it.
+        # Holding the lock means a request that arrives mid-load waits instead of loading a second copy.
+        def preload():
+            with _model_lock:
+                get_model()
+        threading.Thread(target=preload, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=port)
