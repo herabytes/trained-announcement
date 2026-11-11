@@ -4,7 +4,12 @@
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
 a{color:var(--accent)}
-.top{display:flex;justify-content:space-between;align-items:center;padding:14px 22px}
+/* Header floats at the top while you scroll, so "Trained" and the Analysis switch stay in reach.
+   Frosted background so the cards scrolling underneath stay faintly visible but don't clash. */
+.top{display:flex;justify-content:space-between;align-items:center;padding:12px 22px;
+  position:sticky;top:0;z-index:10;background:#eef1f5cc;
+  -webkit-backdrop-filter:blur(10px) saturate(1.4);backdrop-filter:blur(10px) saturate(1.4);
+  border-bottom:1px solid #dde2ea99}
 .brand{font-weight:700;font-size:20px;letter-spacing:.2px}
 .brand span{font-weight:400;font-size:13px;color:var(--soft);margin-left:10px}
 /* Analysis switch: a pill in the header that fills with the accent colour when on */
