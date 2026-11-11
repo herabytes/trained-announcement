@@ -5,6 +5,8 @@ data/**
 !data/**/metadata.csv
 !data/**/candidates.csv
 !data/**/labels.csv
+!data/**/journeys.csv
+!data/route_cache.json
 !data/raw/_fs_*_meta.json
 
 # Python
