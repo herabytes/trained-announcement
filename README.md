@@ -60,7 +60,20 @@ First eval run downloads the models (Parakeet TDT 0.6B v3 int8, Whisper Small in
 
 ## Results so far
 
-<!-- TODO: update after labelling + full run -->
+### Baseline (19 hand-labelled clips: 10 human, 9 automated)
+
+| WER (lower = better) | automated (9) | human (10) | median time per clip (laptop CPU) |
+|---|---|---|---|
+| Parakeet TDT 0.6B v3 int8 (phone-sized) | 0.28 | **0.82** | 2.4 s |
+| Whisper Small int8 (phone-sized) | 0.20 | **0.90** | 7.4 s |
+| Whisper large-v3-turbo int8 (~3× bigger) | **0.16** | **0.92** | 21.3 s |
+
+- **Human announcements are 3–5× harder** than automated ones for every model.
+- **A bigger model helps on automated voices, not on human ones**, and is ~9× slower than Parakeet. Moving up a model size is not the fix.
+- Small sample (19 clips): read per-clip results in the viewer, not just averages; one wild clip can move a mean a lot. Runs: `results/2026-11-11_baseline`, `results/2026-11-11_baseline_large`.
+
+### Example
+
 | Clip | Model | Output | WER |
 |---|---|---|---|
 | `fs267700` (Tube driver, iPod recording) | Parakeet TDT 0.6B v3 int8 | "Surely." | 1.00 |
