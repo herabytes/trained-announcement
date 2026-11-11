@@ -1,0 +1,42 @@
+{
+  "models": {
+    "whisper-small-int8": {
+      "n_clips": 20,
+      "n_with_reference": 20,
+      "mean_wer": 0.5125,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 10,
+          "mean_wer": 0.2177
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.8073
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8+context": {
+      "n_clips": 20,
+      "n_with_reference": 20,
+      "mean_wer": 0.4719,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 10,
+          "mean_wer": 0.3702
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.5736
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    }
+  }
+}

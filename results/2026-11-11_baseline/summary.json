@@ -1,0 +1,48 @@
+{
+  "models": {
+    "parakeet-tdt-0.6b-v3-int8": {
+      "n_clips": 20,
+      "n_with_reference": 20,
+      "mean_wer": 0.5684,
+      "median_wer": 0.6401,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 10,
+          "mean_wer": 0.3184,
+          "median_wer": 0.2225
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.8185,
+          "median_wer": 0.8767
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8": {
+      "n_clips": 20,
+      "n_with_reference": 20,
+      "mean_wer": 0.5345,
+      "median_wer": 0.3461,
+      "by_kind": {
+        "automated_announcement": {
+          "n": 10,
+          "mean_wer": 0.2177,
+          "median_wer": 0.1519
+        },
+        "human_announcement": {
+          "n": 10,
+          "mean_wer": 0.8513,
+          "median_wer": 0.455
+        }
+      },
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    }
+  }
+}

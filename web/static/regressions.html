@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Regression lens</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>.nc{color:#d33;font-weight:bold}.ref{font-size:11px;color:#888}.reg{color:#d33}.imp{color:#2a7}
+#gate{font-weight:bold;padding:6px 0}.pass{color:#2a7}.fail{color:#d33}td.diff{max-width:520px}</style></head>
+<body>
+<header><h1>Regression lens</h1> <a href="/" style="color:#9cf">← results</a></header>
+<main>
+  <p><label>Before <select id="before"></select></label> <label>After <select id="after"></select></label>
+  <label>Gate threshold <input id="thr" type="number" step="0.01" min="0" value="0.10" style="width:70px"></label></p>
+  <div id="summary"></div>
+  <div id="gate"></div>
+  <p class="muted">Gate: like a CI check, it blocks a change if any comparable clip gets much worse (WER up by more than the threshold).</p>
+  <table id="tbl"></table>
+</main>
+<script src="/static/regressions.js"></script>
+</body></html>

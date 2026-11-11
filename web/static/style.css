@@ -1,0 +1,27 @@
+body{font:14px/1.4 system-ui,sans-serif;margin:0;color:#222;background:#fafafa}
+header{display:flex;gap:16px;align-items:baseline;padding:10px 20px;background:#223;color:#fff}
+header h1{font-size:18px;margin:0} header select{font-size:14px}
+main{padding:0 20px 60px;max-width:1200px}
+.muted{color:#889;font-size:12px}
+table{border-collapse:collapse;background:#fff;margin-bottom:12px}
+th,td{border:1px solid #ddd;padding:4px 10px;text-align:left}
+th{background:#eee}
+#preds tbody tr{cursor:pointer} #preds tbody tr:hover{background:#eef4ff}
+#preds tbody tr.sel{background:#dde8ff}
+#filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+#filters select{font-size:13px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.box{background:#fff;border:1px solid #ddd;padding:8px 12px}
+.v-correct{background:#d8f3dc}.v-missing{background:#fff1c2}
+.v-wrong{background:#ff8a8a;font-weight:700}.v-not_applicable{color:#999}
+.del{background:#fcc;text-decoration:line-through}.ins{background:#cdf}
+.warn{color:#a60}
+/* per-clip comparison view */
+#runs{font-size:13px} .runchk{margin-right:8px;white-space:nowrap}
+.clip{background:#fff;border:1px solid #ddd;border-radius:6px;padding:10px 14px;margin:12px 0}
+.cliphead{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.cliphead audio{height:30px;margin-left:auto}
+.tag{background:#e6eefc;border-radius:3px;padding:0 6px;font-size:12px}
+.ref{margin:8px 0;padding:6px 10px;background:#f4f6f8;border-left:3px solid #889}
+table.cmp{width:100%;margin:0} table.cmp td:first-child{white-space:nowrap;width:1%}
+.w-good{background:#d8f3dc}.w-mid{background:#fff1c2}.w-bad{background:#ffd0d0}

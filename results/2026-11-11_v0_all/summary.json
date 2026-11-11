@@ -1,0 +1,22 @@
+{
+  "models": {
+    "parakeet-tdt-0.6b-v3-int8": {
+      "n_clips": 24,
+      "n_with_reference": 1,
+      "mean_wer": 1.0,
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    },
+    "whisper-small-int8": {
+      "n_clips": 24,
+      "n_with_reference": 1,
+      "mean_wer": 0.4286,
+      "facts_correct": null,
+      "facts_wrong": null,
+      "facts_missing": null,
+      "fact_score": null
+    }
+  }
+}

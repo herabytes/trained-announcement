@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-11-11_route_hint",
+  "created_at": "2026-11-11T20:08:19+00:00",
+  "dataset": "data/raw (Freesound announcements)",
+  "models": [
+    "whisper-small-int8",
+    "whisper-small-int8+context",
+    "whisper-small-int8+route"
+  ],
+  "normalizer": "whisper_english (whisper-normalizer)",
+  "fact_score_wrong_weight": 2,
+  "notes": "first real run; facts not extracted yet"
+}

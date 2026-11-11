@@ -1,0 +1,9 @@
+{
+  "run_id": "mock",
+  "created_at": "2026-11-10T15:00:00Z",
+  "dataset": "data/mock",
+  "models": ["parakeet-tdt-0.6b-v3", "whisper-small"],
+  "normalizer": "whisper_english",
+  "fact_score_wrong_weight": 2,
+  "notes": "MOCK DATA - not real results"
+}

@@ -1,0 +1,106 @@
+/* Demo page: calm "on the train" look. The Analysis switch adds body.analysis,
+   which shows the side panel and the technical rows inside each card. */
+:root{--bg:#eef1f5;--ink:#1d2433;--soft:#6b7486;--line:#dde2ea;--accent:#2f5bd3;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+a{color:var(--accent)}
+.top{display:flex;justify-content:space-between;align-items:center;padding:14px 22px}
+.brand{font-weight:700;font-size:20px;letter-spacing:.2px}
+.brand span{font-weight:400;font-size:13px;color:var(--soft);margin-left:10px}
+.switch{font-size:13px;color:var(--soft);cursor:pointer;user-select:none}
+.layout{display:grid;grid-template-columns:minmax(0,560px);justify-content:center;gap:22px;padding:0 16px 30px}
+body.analysis .layout{grid-template-columns:minmax(0,560px) minmax(0,400px)}
+@media (max-width:1000px){body.analysis .layout{grid-template-columns:minmax(0,560px)}}
+.panel{background:var(--card);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px #0000000f}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--soft);margin:0 0 10px;font-weight:600}
+.hint{color:var(--soft);font-size:13px}
+input:not([type=checkbox]),select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+.fields{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fields input{flex:1 1 140px;min-width:0}
+.fields #operator{flex-basis:100%}
+.arrow{color:var(--soft)}
+.pick{display:flex;gap:8px}
+.pick select{flex:1;min-width:0}
+button{font:inherit;border-radius:999px;padding:8px 18px;cursor:pointer;border:1px solid transparent}
+button:disabled{opacity:.45;cursor:default}
+.primary{background:var(--accent);color:#fff}
+.secondary{background:#fff;border-color:var(--line);color:var(--ink)}
+#rec.on{background:#c8323a;color:#fff;border-color:#c8323a}
+.ghost{background:none;color:var(--accent);padding:8px 6px;font-size:14px}
+.ghost:not(:disabled):hover{text-decoration:underline}
+.or{display:flex;align-items:center;gap:10px;color:var(--soft);font-size:12px;margin:14px 0 10px}
+.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.mic{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* Result cards: one result set at a time (1 card, or 2 for "Simulate my PA") */
+.result-area{display:grid;gap:12px}
+.msg{background:var(--card);border-radius:16px;padding:14px 18px 16px;box-shadow:0 4px 18px #1d243318;
+  border-left:5px solid var(--accent);animation:pop .25s ease-out}
+.msg.pa{border-left-color:#d08a1c}
+.msg.err{border-left-color:#c8323a}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg-head{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--soft)}
+.msg-head .who{font-weight:600;color:var(--ink)}
+.msg-head .when{margin-left:auto}
+.playbtn{width:34px;height:34px;padding:0;border-radius:50%;background:#eef2fc;color:var(--accent);font-size:13px;flex:none}
+.playbtn.playing{background:var(--accent);color:#fff}
+.said{margin:10px 0 0}
+.said .lead{font-size:13px;color:var(--soft)}
+.said .text{font-size:21px;line-height:1.4;margin-top:2px}
+.said .empty{font-size:16px;color:#a0631a}
+.thinking{color:var(--soft);font-size:17px}
+.thinking::after{content:"";display:inline-block;width:12px;height:12px;margin-left:10px;vertical-align:-1px;
+  border:2px solid #9aa3b5;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Analysis-only content */
+.tech{display:none}
+body.analysis .tech{display:block}
+.refbox:empty{display:none}   /* only dataset clips have a reference; shown with or without Analysis */
+
+/* Human reference, directly under the transcript */
+.refbox{margin-top:12px;padding:10px 12px 12px;background:#f5f8f5;border-radius:10px;border:1px solid #dfe9e0}
+.ref-head{display:flex;align-items:center;gap:8px}
+.ref-title{font-size:12px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;color:#2f6b3a}
+.wer{margin-left:auto;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px}
+.wer.good{background:#dcf1df;color:#21632d}.wer.mid{background:#fbecd2;color:#8a5a10}.wer.bad{background:#f9dcdd;color:#9c2730}
+.ref-text{font-size:16px;line-height:1.45;margin-top:4px;color:var(--ink)}
+.ref-diff{margin-top:8px;padding-top:8px;border-top:1px solid #dfe9e0;font-size:14px;line-height:1.9;color:#46506a}
+.del{background:#fbd5d6;color:#8f1f27;text-decoration:line-through;padding:1px 3px;border-radius:3px}
+.ins{background:#d6e3fb;color:#1d3f99;padding:1px 3px;border-radius:3px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;color:var(--soft)}
+.legend span span{font-size:11px}
+.sub{white-space:nowrap}
+.sub .to{color:var(--soft);margin:0 2px;font-size:12px}
+.legend .formula{margin-left:auto;font-variant-numeric:tabular-nums}
+
+/* Technical block: stat tiles, chips, collapsible segments */
+.tech{margin-top:12px;font-size:13px;color:#46506a}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.tile{background:#f4f6fa;border-radius:10px;padding:8px 10px}
+.t-label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--soft)}
+.t-value{font-size:20px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.t-note{font-size:11px;color:var(--soft)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:12px;background:#eef2fc;color:#2a3f7a;padding:2px 9px;border-radius:999px}
+.chip.dim{background:#f1f2f5;color:#9aa3b5}
+.tech details{margin-top:8px}
+.tech summary{cursor:pointer;color:var(--accent);font-size:13px}
+.segs{border-collapse:collapse;margin-top:6px;width:100%}
+.segs th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--soft);font-weight:600}
+.segs td,.segs th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+.segs .time{white-space:nowrap;color:var(--soft);font-variant-numeric:tabular-nums}
+.bar{width:56px;height:6px;background:#e6e9ef;border-radius:3px;margin-top:7px;overflow:hidden}
+.bar i{display:block;height:100%;background:#8fa3d6}
+.bar.high i{background:#d08a1c}
+.side .opt{display:block;margin:8px 0;font-size:14px}
+.side .opt select{display:block;margin-top:4px;width:100%}
+.off{color:#9aa3b5}.off em{font-size:11px;background:#eef1f5;padding:1px 6px;border-radius:4px;font-style:normal}
+#failures{border-collapse:collapse;font-size:13px}
+#failures td,#failures th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+#failures a{cursor:pointer;text-decoration:underline}
+#failures .missing{color:#aab}
+footer{text-align:center;color:var(--soft);font-size:12px;padding:10px 0 24px}
+
+.chipbtn{border:1px solid var(--line);background:#f5f7fb;padding:4px 10px;font-size:13px;margin:6px 6px 0 0}
+#routebox{margin-top:8px}

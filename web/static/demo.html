@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Trained: catch the announcement you missed</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/demo.css"></head>
+<body>
+<header class="top">
+  <div class="brand">Trained<span>catch the announcement you missed</span></div>
+  <label class="switch" title="Show timings, model details and the evaluation evidence">
+    <input type="checkbox" id="analysis"> Analysis</label>
+</header>
+
+<div class="layout">
+<main>
+
+  <section class="panel journey">
+    <h2>Where are you going?</h2>
+    <div class="fields">
+      <input id="from" placeholder="From" aria-label="From">
+      <span class="arrow">→</span>
+      <input id="to" placeholder="To" aria-label="To">
+      <input id="operator" placeholder="Operator (optional)" aria-label="Operator">
+      <button id="clearjourney" class="ghost" type="button">Clear journey</button>
+    </div>
+    <div id="routechips" class="chips"></div>
+    <div id="routemsg" class="hint"></div>
+    <details id="routebox" hidden><summary class="hint">Route hint</summary><div id="routehint" class="hint"></div></details>
+  </section>
+
+  <section class="panel listen">
+    <h2>Announcement</h2>
+    <div class="pick">
+      <select id="clip" aria-label="Announcement"><option value="">loading announcements…</option></select>
+      <button id="play" class="primary" disabled>▶ Play</button>
+    </div>
+    <div class="or"><span>or say one yourself</span></div>
+    <div class="mic">
+      <button id="rec" class="secondary">● Record</button>
+      <button id="simulate" class="ghost" disabled title="Record something first">Simulate my PA</button>
+      <span id="recinfo" class="hint"></span>
+    </div>
+  </section>
+
+  <section id="result" class="result-area" aria-live="polite"></section>
+
+</main>
+
+<aside id="side" class="side" hidden>
+  <section class="panel">
+    <h2>Settings</h2>
+    <label class="opt">Train noise for "Simulate my PA"
+      <select id="snr">
+        <option value="10">light (10 dB SNR)</option>
+        <option value="5" selected>medium (5 dB SNR)</option>
+        <option value="0">heavy (0 dB SNR)</option></select></label>
+    <label class="opt"><input type="checkbox" id="pa" checked> PA speaker filter (300–3400 Hz)</label>
+    <label class="opt off"><input type="checkbox" id="denoise" disabled> Denoise <em>coming soon</em></label>
+    <label class="opt"><input type="checkbox" id="context" checked> Context hint from journey (route hint) &middot; <a href="/context">what is this?</a></label>
+    <label class="opt"><input type="checkbox" id="compare"> Compare: with vs without route hint</label>
+  </section>
+  <section class="panel">
+    <h2>Where small models fail</h2>
+    <p class="hint">Why route hints help: <a href="/context">context hints explained</a>.</p>
+    <p class="hint">From the baseline eval (anecdotes, not measured rates). Click a clip id to load it.
+      Full numbers: <a href="/">eval results</a>.</p>
+    <table id="failures"></table>
+  </section>
+</aside>
+</div>
+
+<footer><a href="/">eval results</a> · <a href="/label">labelling</a> · runs locally: Whisper Small int8 on this computer</footer>
+<script src="/static/demo.js"></script>
+</body></html>
