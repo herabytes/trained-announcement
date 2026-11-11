@@ -1,20 +1,28 @@
 # /// script
-# requires-python = ">=3.10"
-# dependencies = ["fastapi", "uvicorn"]
+# requires-python = ">=3.10,<3.13"
+# dependencies = ["fastapi", "uvicorn", "python-multipart", "faster-whisper", "av<14", "numpy"]
 # ///
-"""ASR eval results viewer + clip labelling page. Run: uv run web/app.py [--port 8000]"""
+# python-multipart: lets FastAPI read file uploads (form-data). av<14: faster-whisper's audio
+# loader breaks on PyAV 14+. faster-whisper is only imported when /api/transcribe is first used.
+"""ASR eval results viewer + clip labelling page + live demo.
+Run: uv run web/app.py [--port 8000] [--label | --demo]"""
+import base64
 import csv
+import io
 import json
 import os
 import sys
 import threading
+import time
+import wave
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -76,11 +84,178 @@ def audio(path: str):
     return FileResponse(f)
 
 
+# --- live demo: transcription -----------------------------------------------
+SAMPLE_RATE = 16000              # Whisper expects 16 kHz mono
+MODEL_NAME = "whisper-small-int8"
+NOISE_CLIP = RAW / "freesound_noise" / "fs343146.mp3"  # London Overground carriage ambience
+NOISE_OFFSET_S = 10              # skip the first seconds of the noise recording
+PA_BAND_HZ = (300, 3400)         # "PA speaker / phone line" band: cut lows (rumble) and highs
+
+_model = None                    # loaded on first request, then reused (loading takes seconds)
+_model_lock = threading.Lock()   # one transcription at a time: keeps memory use predictable
+_noise = None                    # train noise, decoded once
+
+
+def get_model():
+    """Load Whisper Small int8 once. Prefer the copy already in the Hugging Face cache
+    (local_files_only=True = never touch the network); download only if it isn't cached."""
+    global _model
+    if _model is None:
+        from faster_whisper import WhisperModel  # heavy import: only when the demo is used
+        try:
+            _model = WhisperModel("small", device="cpu", compute_type="int8", local_files_only=True)
+        except Exception:
+            _model = WhisperModel("small", device="cpu", compute_type="int8")
+    return _model
+
+
+def decode(source) -> np.ndarray:
+    """Any audio PyAV can read (mp3, wav, flac, webm/opus from the browser...) -> 16 kHz mono float32."""
+    from faster_whisper import decode_audio
+    return decode_audio(source, sampling_rate=SAMPLE_RATE)
+
+
+def rms(x: np.ndarray) -> float:
+    """Root mean square = average loudness of a signal."""
+    return float(np.sqrt(np.mean(x ** 2))) if len(x) else 0.0
+
+
+def simulate_train(speech: np.ndarray, snr_db: float, pa_filter: bool) -> np.ndarray:
+    """Make a clean recording sound like it was heard on a train:
+    1. (optional) band-pass it like a cheap PA speaker,
+    2. add real carriage noise so that speech is `snr_db` dB louder than the noise.
+    SNR (signal-to-noise ratio): 10 dB = speech clearly louder, 0 dB = equally loud."""
+    global _noise
+    if _noise is None:
+        if not NOISE_CLIP.is_file():
+            raise HTTPException(400, f"noise clip missing: {NOISE_CLIP.name} (run scripts/download_data.py)")
+        _noise = decode(str(NOISE_CLIP))
+    x = speech.astype(np.float32)
+    if pa_filter:  # zero every frequency outside the band (simple FFT filter, no scipy needed)
+        spectrum = np.fft.rfft(x)
+        freqs = np.fft.rfftfreq(len(x), 1 / SAMPLE_RATE)
+        spectrum[(freqs < PA_BAND_HZ[0]) | (freqs > PA_BAND_HZ[1])] = 0
+        x = np.fft.irfft(spectrum, n=len(x)).astype(np.float32)
+    noise = _noise[NOISE_OFFSET_S * SAMPLE_RATE:]
+    noise = np.tile(noise, int(np.ceil(len(x) / len(noise))))[:len(x)]  # loop if speech is longer
+    # Scale the noise so that rms(speech) / rms(noise) = 10^(snr_db / 20)
+    noise = noise * (rms(x) / (rms(noise) * 10 ** (snr_db / 20) + 1e-9))
+    mixed = x + noise
+    peak = float(np.max(np.abs(mixed))) if len(mixed) else 0.0
+    return mixed / peak * 0.95 if peak > 1 else mixed  # avoid clipping
+
+
+def wav_base64(x: np.ndarray) -> str:
+    """16 kHz float audio -> WAV file bytes -> base64 text, so the page can play what the model heard."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)  # 16-bit samples
+        w.setframerate(SAMPLE_RATE)
+        w.writeframes((np.clip(x, -1, 1) * 32767).astype("<i2").tobytes())
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def announcement_clips() -> dict:
+    return {k: v for k, v in raw_clips().items() if v["folder"] == "freesound_announcements"}
+
+
+@app.get("/api/demo/clips")
+def demo_clips():
+    """Announcement clips present on disk, with title and (if labelled) the human reference."""
+    meta = {m["id"]: m for m in load(RAW / "_fs_ann_meta.json") or []}
+    labels = read_labels()
+    out = []
+    for cid, c in announcement_clips().items():
+        m, lab = meta.get(cid, {}), labels.get(cid, {})
+        out.append({"clip_id": cid, "audio_path": c["audio_path"], "title": m.get("title"),
+                    "duration": m.get("dur"), "kind": lab.get("kind") or None,
+                    "reference": lab.get("transcript") or None,
+                    "seg_start": lab.get("seg_start") or None, "seg_end": lab.get("seg_end") or None})
+    return out
+
+
 @app.post("/api/transcribe")
-def transcribe():
-    # TODO: live transcription. Accept an audio upload, run a model locally or proxy to a
-    # Modal GPU endpoint, return {"text": ...}. Not implemented yet.
-    return JSONResponse({"detail": "not implemented"}, status_code=501)
+def transcribe(
+    audio: UploadFile | None = File(None),   # a recording from the browser (webm/opus, wav, mp3...)
+    clip_id: str = Form(""),                 # ...or the id of a dataset clip already on disk
+    journey: str = Form("{}"),               # JSON {"from","to","operator"}: future context hint
+    denoise: bool = Form(False),             # accepted now, applied once exp/denoise merges
+    context: bool = Form(False),             # accepted now, applied once exp/context merges
+    simulate: bool = Form(False),            # mix in train noise before transcribing
+    snr_db: float = Form(5.0),
+    pa_filter: bool = Form(True),
+):
+    t_request = time.time()
+    try:
+        journey_obj = json.loads(journey or "{}")
+    except json.JSONDecodeError:
+        raise HTTPException(400, "journey must be JSON")
+
+    # 1. Get the audio as a 16 kHz numpy array
+    if audio is not None and audio.filename:
+        data = audio.file.read()
+        if not data:
+            raise HTTPException(400, "empty audio upload")
+        try:
+            samples = decode(io.BytesIO(data))
+        except Exception as e:
+            raise HTTPException(400, f"could not decode audio: {e}")
+        source = {"type": "upload", "filename": audio.filename, "bytes": len(data)}
+    elif clip_id:
+        clips = announcement_clips()
+        if clip_id not in clips:
+            raise HTTPException(404, "unknown clip")
+        samples = decode(str(ROOT / clips[clip_id]["audio_path"]))
+        # Same trim as the eval: if the clip is labelled with an announcement segment, use it,
+        # so the transcript can be compared with the human reference for that segment.
+        lab = read_labels().get(clip_id, {})
+        segment = None
+        if lab.get("seg_start") or lab.get("seg_end"):
+            s0 = float(lab.get("seg_start") or 0)
+            s1 = float(lab["seg_end"]) if lab.get("seg_end") else None
+            samples = samples[int(s0 * SAMPLE_RATE):int(s1 * SAMPLE_RATE) if s1 else None]
+            segment = [s0, s1]
+        source = {"type": "clip", "clip_id": clip_id, "segment": segment,
+                  "reference": lab.get("transcript") or None}
+    else:
+        raise HTTPException(400, "send an 'audio' file or a 'clip_id'")
+    if len(samples) < SAMPLE_RATE * 0.3:
+        raise HTTPException(400, "audio too short (under 0.3 s)")
+
+    # 2. Optional: make it sound like a train
+    heard_wav = None
+    if simulate:
+        samples = simulate_train(samples, snr_db, pa_filter)
+        heard_wav = wav_base64(samples)
+
+    # 3. Transcribe (same settings as scripts/run_eval.py, so the demo matches the eval)
+    with _model_lock:
+        t_load = time.time()
+        model = get_model()
+        load_s = time.time() - t_load
+        t0 = time.time()
+        segments, _info = model.transcribe(samples, language="en", beam_size=5)
+        segments = list(segments)  # the real work happens here: segments is a lazy generator
+        latency_s = time.time() - t0
+
+    return {
+        "text": " ".join(seg.text.strip() for seg in segments).strip(),
+        "latency_s": round(latency_s, 2),               # model time only, like inference_s in the eval
+        "total_s": round(time.time() - t_request, 2),   # whole request: decode + mix + model (+ load)
+        "model_load_s": round(load_s, 2),               # > 0 only on the first request
+        "audio_s": round(len(samples) / SAMPLE_RATE, 2),
+        "model": MODEL_NAME,
+        "segments": [{"start": round(seg.start, 2), "end": round(seg.end, 2), "text": seg.text.strip(),
+                      "no_speech_prob": round(seg.no_speech_prob, 2)} for seg in segments],
+        "source": source,
+        "journey": journey_obj,
+        "simulate": {"snr_db": snr_db, "pa_filter": pa_filter,
+                     "noise_clip": NOISE_CLIP.stem} if simulate else None,
+        "heard_wav_b64": heard_wav,                      # what the model heard (only when simulated)
+        "denoise": {"requested": denoise, "applied": False},  # TODO: exp/denoise
+        "context": {"requested": context, "applied": False},  # TODO: exp/context (hint from journey)
+    }
 
 
 def read_labels() -> dict:
@@ -167,6 +342,11 @@ def label_page():
     return FileResponse(STATIC / "label.html")
 
 
+@app.get("/demo")
+def demo_page():
+    return FileResponse(STATIC / "demo.html")
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html")
@@ -176,6 +356,6 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 if __name__ == "__main__":
     port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8000
-    page = "/label" if "--label" in sys.argv else ""
+    page = "/label" if "--label" in sys.argv else "/demo" if "--demo" in sys.argv else ""
     threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}{page}")).start()
     uvicorn.run(app, host="127.0.0.1", port=port)
