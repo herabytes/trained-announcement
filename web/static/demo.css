@@ -1,0 +1,29 @@
+/* Demo page. Builds on style.css (header, tables, .box, .muted). */
+main.demo{max-width:980px;padding-top:12px}
+.card{background:#fff;border:1px solid #ddd;padding:6px 16px 12px;margin-bottom:14px}
+.card h2{font-size:16px;margin:8px 0}
+.box h3{font-size:14px;margin:4px 0}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.row input:not([type]){font-size:14px;padding:3px 6px;width:150px}
+.options{margin-bottom:10px}
+.off{color:#999}.off em{font-size:11px;background:#eee;padding:1px 5px;border-radius:3px;font-style:normal}
+.sources{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:700px){.sources{grid-template-columns:1fr}}
+.sources select{max-width:100%;font-size:13px}
+audio{margin:6px 0;max-width:100%}
+button{font-size:14px;padding:5px 12px;cursor:pointer}
+button:disabled{cursor:default}
+#rec.on{background:#c33;color:#fff;border-color:#c33}
+.thinking{color:#667}
+.thinking::after{content:"";display:inline-block;width:10px;height:10px;margin-left:8px;
+  border:2px solid #99a;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result{border-left:4px solid #335;background:#f7f8fc;padding:8px 12px;margin:10px 0}
+.result.err{border-left-color:#c33;background:#fff4f4}
+.result .text{font-size:18px;margin:4px 0 6px}
+.result .empty{color:#a60;font-style:italic}
+.result .ref{color:#363}
+.stats{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#556}
+.stats b{color:#223;font-size:14px}
+#failures a{cursor:pointer;color:#14c;text-decoration:underline}
+#failures .missing{color:#aaa}
