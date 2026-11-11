@@ -44,7 +44,7 @@ python scripts/download_data.py --no-demand   # ~45 MB of Freesound clips (drop 
 
 ```bash
 uv run web/app.py --demo     # live demo       → http://127.0.0.1:8000/demo   (start here)
-uv run web/app.py            # results viewer  → http://127.0.0.1:8000
+uv run web/app.py            # results viewer  → http://127.0.0.1:8000   (/regressions: before vs after per clip, pass/fail gate; /context: how the route hint works)
 uv run web/app.py --label    # labelling page  → http://127.0.0.1:8000/label
 
 uv run scripts/run_eval.py --run-id my_run                      # all announcement clips, both models
@@ -90,11 +90,13 @@ Same model, same clips, one run (branch `exp/context`, `results/2026-11-11_conte
 
 | Whisper Small, 6 clips with a known journey | median WER | mean WER |
 |---|---|---|
-| no hint | 0.23 | 0.68 |
-| generic hint | 0.18 | 0.56 |
-| **route hint** | **0.10** | **0.31** |
+| no hint | 0.23 | 0.40 |
+| generic hint | 0.21 | 0.33 |
+| **route hint** | **0.09** | **0.16** |
 
-The hint is the clip's own route, e.g. *"Calling at Kyle of Lochalsh, Duirinish, Plockton, … and Inverness."* The journey comes from the clip's Freesound description (never its transcript); the stations come from timetables (`data/route_cache.json`). **It fixed every place name the generic list missed:** Plockton, Kirkcaldy, Inverkeithing, Haymarket, Tiverton Parkway, Stoke-on-Trent, Stockport. Caveats: only 6 clips; a hint can disturb other words ("to Manchester" → "Dimension of"); and on `fs317554`, which is mostly inaudible, it wrote out the whole route, either copied from the hint or heard better than the labeller (a human-labelled eval can't tell which). Run: `results/2026-11-11_route_hint` (one run, all three conditions). Try it in the demo: pick Plockton, compare with vs without the route hint.
+The hint is the clip's own route, e.g. *"Calling at Kyle of Lochalsh, Duirinish, Plockton, … and Inverness."* The journey comes from the clip's Freesound description (never its transcript); the stations come from timetables (`data/route_cache.json`). **It fixed every place name the generic list missed:** Plockton, Kirkcaldy, Inverkeithing, Haymarket, Tiverton Parkway, Stoke-on-Trent, Stockport. Caveats: only 6 clips; a hint can disturb other words ("to Manchester" → "Dimension of"); and on `fs317554`, which is barely audible, it wrote out the whole route: re-listening *knowing the route*, I could hear most of it, but couldn't fully confirm it (a human-labelled eval can't measure beyond the labeller). Run: `results/2026-11-11_route_hint` (one run, all three conditions). Try it in the demo: pick Plockton, compare with vs without the route hint.
+
+**Reproduced from a fresh clone** (clone → `download_data.py` → `uv run web/app.py`): Plockton without hint → "Popton", with route hint → "Plockton". No API key needed (routes are cached).
 
 ### Failure examples (clip IDs)
 
@@ -120,6 +122,8 @@ Mostly from the first full run over *unsegmented* clips (`results/2026-11-11_v0_
 - **`[inaudible]` counts against models:** the normaliser deletes it, so words a model writes in a gap the labeller couldn't hear count as insertions, even if the model heard correctly. A human-labelled eval can't measure better-than-human hearing.
 - **Whisper isn't fully repeatable:** when its output looks repetitive or unsure, it retries with some randomness. Same audio, `fs317554`, Whisper large: WER 4.89 in one run, 1.00 in the next.
 - **Trim clips to the announcement (endpointing):** hallucinations appear in the non-speech stretches before and after the announcement, so trimming should cut them as well as latency.
+- **Numbers get lost:** on `fs317554` no model got "Platform 8, 15:36", the facts a passenger needs most. WER treats them like any word; key-fact scoring (time, platform, destination) is the next metric.
+- **Exact train, not just the route:** a train-times API would give the actual service's calling pattern and time (a stronger hint, and a way to check the transcript).
 - **Route-aware contextual biasing:** build the model's hint from the passenger's journey (the train's calling points), instead of a generic UK-rail list.
 - **LLM post-correction, if context hints aren't enough:** a small language model with railway knowledge repairs the transcript ("call to" → "couple to", see `ai.md`). It costs memory and latency on a phone, so static context hints come first; this is the escalation if they fail.
 - Next: streaming transcription, chime/ping activation, key-fact scoring (platform, delay…), denoising front-ends, more accents.

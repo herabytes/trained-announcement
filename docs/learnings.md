@@ -14,6 +14,15 @@ Next time when I have to deal with any data I'm gonna open a Jupyter Notebook fi
 - Idea: a "skill"-style hint for UK trains, e.g. *"'calling at' is followed by a list of station names"*. Whisper can't use rules like this (its hint is just preceding text, so it would only boost the words "calling at"), but an LLM post-correction step could. Goes with the LLM idea in ai.md.
 - Side thought: a slightly butchered name ("Carcotti" for Kirkcaldy) is recoverable for a human who knows their route, but WER counts it as a full error. Missing vs wrong again.
 
+## Sheffield (fs317554): route context helps humans too, but it's unreliable
+- First label (no context): "18:36 Northern Rail Service to [inaudible] Calling at Sheffield." Mostly inaudible.
+- With the route hint, Whisper wrote out the whole Doncaster → Sheffield route. Copied from the hint, or heard it?
+- I re-listened **knowing the route** and heard: "Platform 8 15:36 Northern Rail Service to Sheffield. [inaudible] Highsbrough, Mexbrough, [inaudible], Rotherham Central, Meadowhall and Sheffield. Platform 8 Sheffield."
+  - Knowing the route let me hear stations I couldn't before. Context raises the human ceiling too.
+  - But it's unreliable: "Highsbrough" is probably Conisbrough, and I can't be sure I'm hearing rather than expecting.
+  - Next step: an **exact train API** (the actual service's calling pattern and time), not just "stations on the route".
+- **The time is a serious limitation:** the description says 15:26, my old label said 18:36, I now hear 15:36, and **no model got the number at all**. Times and platforms are the facts a passenger needs most, so key-fact scoring (time, platform) matters more than WER here.
+
 
 ## Frontend
 Making sure that the frontend doesn't change things from the original python files - the normaliser was different the first go apparently. 
