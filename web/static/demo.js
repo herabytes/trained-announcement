@@ -25,6 +25,7 @@ const FAILURES = [
 ];
 
 let clips = {};            // clip_id -> {title, reference, seg_start, ...} from /api/demo/clips
+let clipList = [];         // the raw list from /api/demo/clips
 let lastRecording = null;  // the most recent mic recording (a Blob)
 
 // ---------- Form fields shared by every transcription request ----------
@@ -212,20 +213,47 @@ const mmss = s => s == null ? "?" : `${Math.floor(s / 60)}:${String(Math.round(s
 async function loadClips() {
   const list = await (await fetch("/api/demo/clips")).json();
   clips = Object.fromEntries(list.map(c => [c.clip_id, c]));
+  clipList = list;
+  renderClips();
+  renderFailures();
+}
+
+const norm = s => String(s || "").trim().toLowerCase();
+// Clips whose recorded journey equals origin -> destination (case-insensitive, trimmed).
+const clipsOnJourney = (list, origin, destination) => list.filter(c =>
+  c.journey && norm(c.journey.origin) === norm(origin) && norm(c.journey.destination) === norm(destination));
+const NO_CLIPS_MSG = "No recorded announcements for this journey: record your own announcement below.";
+
+// Rebuild the picker from the current journey fields: no journey = all clips; journey = only its clips.
+function renderClips() {
+  const origin = $("from").value, destination = $("to").value;
+  const journeySet = norm(origin) && norm(destination);
   const option = c => {
     const name = (c.title || c.clip_id).replace(/\.(wav|mp3|flac)$/i, "");
     const start = +c.seg_start || 0, end = c.seg_end ? +c.seg_end : secs(c.duration);  // length the model hears
     return `<option value="${esc(c.clip_id)}">${esc(name)} (${mmss(end == null ? null : end - start)}) · ${esc(c.clip_id)}</option>`;
   };
-  // Recommended clips first (in RECOMMENDED order, skipping any not downloaded), then everything else.
-  const recommended = RECOMMENDED.filter(id => clips[id]).map(id => clips[id]);
-  const rest = list.filter(c => !RECOMMENDED.includes(c.clip_id));
-  $("clip").innerHTML = !list.length
-    ? '<option value="">no announcements found: run python scripts/download_data.py</option>'
-    : '<option value="">choose an announcement…</option>' +
+  const byRec = (a, b) => { const i = x => RECOMMENDED.includes(x.clip_id) ? RECOMMENDED.indexOf(x.clip_id) : 1e9; return i(a) - i(b); };
+  const keep = $("clip").value;
+  const sel = $("clip");
+  sel.disabled = false;
+  if (!clipList.length) {
+    sel.innerHTML = '<option value="">no announcements found: run python scripts/download_data.py</option>';
+  } else if (journeySet) {
+    const match = clipsOnJourney(clipList, origin, destination).sort(byRec);  // stable: keeps list order otherwise
+    if (!match.length) { sel.innerHTML = `<option value="">${esc(NO_CLIPS_MSG)}</option>`; sel.disabled = true; }
+    else sel.innerHTML = '<option value="">choose an announcement…</option>' +
+      `<optgroup label="Announcements on this journey">${match.map(option).join("")}</optgroup>`;
+  } else {
+    const recommended = RECOMMENDED.filter(id => clips[id]).map(id => clips[id]);
+    const rest = clipList.filter(c => !RECOMMENDED.includes(c.clip_id));
+    sel.innerHTML = '<option value="">choose an announcement…</option>' +
       (recommended.length ? `<optgroup label="Recommended">${recommended.map(option).join("")}</optgroup>` : "") +
       `<optgroup label="All clips">${rest.map(option).join("")}</optgroup>`;
-  renderFailures();
+  }
+  sel.value = keep;
+  if (sel.value !== keep) sel.value = "";
+  $("play").disabled = !clips[sel.value];
 }
 
 function selectClip(id) {
@@ -239,6 +267,7 @@ function selectClip(id) {
 async function setJourney(origin, destination) {
   $("from").value = origin; $("to").value = destination;
   route = null;
+  renderClips();
   $("routebox").hidden = true;
   if (!origin.trim() || !destination.trim()) { $("routemsg").textContent = ""; return; }
   $("routemsg").textContent = "looking up route…";
@@ -268,6 +297,9 @@ async function loadRoutes() {
   } catch (e) { /* presets are optional */ }
 }
 $("from").onchange = $("to").onchange = () => setJourney($("from").value, $("to").value);
+let typingTimer = null;
+$("from").oninput = $("to").oninput = () => { clearTimeout(typingTimer); typingTimer = setTimeout(renderClips, 250); };
+$("clearjourney").onclick = () => setJourney("", "");
 
 // Play: start the audio AND the transcription at the same time, like hearing it on the train.
 function playClip() {
