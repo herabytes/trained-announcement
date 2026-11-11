@@ -4,6 +4,7 @@ data/**
 !data/**/
 !data/**/metadata.csv
 !data/**/candidates.csv
+!data/**/labels.csv
 !data/raw/_fs_*_meta.json
 
 # Python
@@ -13,3 +14,7 @@ __pycache__/
 
 # Node
 node_modules/
+
+# Private notes (call transcripts etc.)
+call.txt
+brief.txt
