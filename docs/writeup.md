@@ -34,7 +34,7 @@ Method: what makes a good transcription? Words. Downstream for trains specifical
 - the live human PAs are harder than robotic spliced station announcements by ~3–4× (median WER: Whisper Small 0.46 vs 0.15, Parakeet 0.88 vs 0.22). Not all drivers are telepresenters and the content is less predictable (e.g. `fs277754`: a guard explaining another unit is about to couple to the rear of the train, and I'm still not sure of the exact words). Synthetic voices are easier to transcribe ([Walkie benchmark](https://trywalkie.com/en/blog/on-device-speech-to-text-benchmark): 3–6× more errors on a real voice than on computer voices). This holds throughout results. `results/2026-11-11_baseline`
 *Context hint run*: 
 - It's only Whisper Small because Parakeet doesn't support hints.
-- We use a generic list of rail lingo, e.g. *Edinburgh Waverley, ScotRail, "Change here for"*
+- We use a generic list of rail lingo, e.g. *Edinburgh Waverley, ScotRail, "Change here for"* (caveat: the generic list also contains station names, some from the test clips, so generic vs route isn't a clean lingo-vs-names split; needs a re-run with a lingo-only list)
 - We use origin and destination stations to search up stations it might pass on the specific journey.
 - Results
 -  the generic and route medians are close (0.16 vs 0.14), but route wins in terms of place names not in generic list (Plockton, Kirkcaldy, Inverkeithing...), and didn't made any clip worse (0 regressed)
