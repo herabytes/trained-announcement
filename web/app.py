@@ -28,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+DEMO_LOOKUP_TIMEOUT = 15  # seconds: a person is waiting, so give up on the live lookup quickly
 import route_hint  # noqa: E402  (lookup_route, build_hint: journey -> "Calling at A, B and C.")
 RESULTS = ROOT / "results"
 DATA = (ROOT / "data").resolve()
@@ -222,7 +223,7 @@ def get_route(origin: str, destination: str):
     key = route_hint._key(origin, destination)
     cached = key in route_hint._load_cache()
     try:
-        stations = route_hint.lookup_route(origin, destination)
+        stations = route_hint.lookup_route(origin, destination, timeout=DEMO_LOOKUP_TIMEOUT)
     except Exception:
         raise HTTPException(503, LOOKUP_DOWN)
     if not stations:
@@ -309,11 +310,14 @@ def transcribe(
     destination = (journey_obj.get("destination") or journey_obj.get("to") or "").strip()
     if context and origin and destination:
         try:
-            hint = route_hint.build_hint(route_hint.lookup_route(origin, destination))
+            hint = route_hint.build_hint(route_hint.lookup_route(origin, destination, timeout=DEMO_LOOKUP_TIMEOUT))
         except Exception:
-            hint_error = LOOKUP_DOWN
-        if hint is None and hint_error is None:
-            hint_error = LOOKUP_DOWN
+            hint = None
+        if hint is None:
+            # Fallback: no route found, but the passenger typed origin + destination (correct spelling,
+            # and the destination is often the key name), so use those as a minimal hint.
+            hint = route_hint.build_hint([origin, destination])
+            hint_error = LOOKUP_DOWN.rstrip(".") + ". Using just your origin and destination as the hint."
 
     # 3. Transcribe (same settings as scripts/run_eval.py, so the demo matches the eval)
     with _model_lock:

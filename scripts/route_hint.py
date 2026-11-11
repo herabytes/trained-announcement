@@ -37,15 +37,16 @@ def _load_cache() -> dict:
     return json.loads(CACHE_FILE.read_text(encoding="utf-8")) if CACHE_FILE.is_file() else {}
 
 
-def lookup_route(origin: str, destination: str) -> list[str]:
-    """Stations on the route, in order. Cache first; otherwise ask the Modal endpoint (and cache it)."""
+def lookup_route(origin: str, destination: str, timeout: float = 120) -> list[str]:
+    """Stations on the route, in order. Cache first; otherwise ask the Modal endpoint (and cache it).
+    timeout: seconds to wait for the live lookup (short for the interactive demo, longer for batch evals)."""
     cache = _load_cache()
     key = _key(origin, destination)
     if key in cache:
         return cache[key]["stations"]
 
     url = LOOKUP_URL + "?" + urllib.parse.urlencode({"origin": origin, "destination": destination})
-    with urllib.request.urlopen(url, timeout=120) as response:   # raises if the lookup fails
+    with urllib.request.urlopen(url, timeout=timeout) as response:   # raises if the lookup fails
         stations = json.loads(response.read())["stations"]
     if stations:
         cache[key] = {"origin": origin, "destination": destination, "stations": stations,
