@@ -207,7 +207,17 @@ def announcement_clips() -> dict:
             and labels.get(k, {}).get("kind") not in EXCLUDED_KINDS}
 
 
-LOOKUP_DOWN = "live route lookup unavailable; preset journeys still work"
+PARTIAL_NOTE = "couldn't look up the stations in between, so the hint uses only the origin and destination"
+
+
+def route_stations(origin: str, destination: str) -> tuple[list[str], bool]:
+    """Stations on the route, and whether that list is partial. If the lookup fails (offline, or a
+    journey that isn't cached), we still know both ends, so the hint falls back to just those two."""
+    try:
+        stations = route_hint.lookup_route(origin, destination)
+    except Exception:
+        stations = None
+    return (stations, False) if stations else ([origin, destination], True)
 
 
 @app.get("/api/routes")
@@ -221,14 +231,10 @@ def list_routes():
 def get_route(origin: str, destination: str):
     key = route_hint._key(origin, destination)
     cached = key in route_hint._load_cache()
-    try:
-        stations = route_hint.lookup_route(origin, destination)
-    except Exception:
-        raise HTTPException(503, LOOKUP_DOWN)
-    if not stations:
-        raise HTTPException(503, LOOKUP_DOWN)
+    stations, partial = route_stations(origin, destination)
     return {"origin": origin, "destination": destination, "stations": stations,
-            "hint": route_hint.build_hint(stations), "cached": cached}
+            "hint": route_hint.build_hint(stations), "cached": cached,
+            "partial": partial, "note": PARTIAL_NOTE if partial else None}
 
 
 def clip_journeys() -> dict:
@@ -304,16 +310,13 @@ def transcribe(
         heard_wav = wav_base64(samples)
 
     # 2b. Optional: route hint (Whisper's initial_prompt) from the journey
-    hint, hint_error = None, None
+    hint = None
     origin = (journey_obj.get("origin") or journey_obj.get("from") or "").strip()
     destination = (journey_obj.get("destination") or journey_obj.get("to") or "").strip()
+    hint_partial = False
     if context and origin and destination:
-        try:
-            hint = route_hint.build_hint(route_hint.lookup_route(origin, destination))
-        except Exception:
-            hint_error = LOOKUP_DOWN
-        if hint is None and hint_error is None:
-            hint_error = LOOKUP_DOWN
+        stations, hint_partial = route_stations(origin, destination)
+        hint = route_hint.build_hint(stations)
 
     # 3. Transcribe (same settings as scripts/run_eval.py, so the demo matches the eval)
     with _model_lock:
@@ -346,7 +349,8 @@ def transcribe(
         "denoise": {"requested": denoise, "applied": False},  # TODO: exp/denoise
         "context": {"requested": context, "applied": hint is not None},
         "hint": hint,
-        "hint_error": hint_error,
+        "hint_partial": hint_partial,                    # True = lookup failed, hint is just origin + destination
+        "hint_note": PARTIAL_NOTE if hint_partial else None,
     }
 
 

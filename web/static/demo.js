@@ -36,7 +36,7 @@ const hasJourney = () => !!(route && route.origin === $("from").value.trim() && 
 function buildForm(audioBlob, filename, ctx = $("context").checked) {
   const form = new FormData();
   form.append("journey", JSON.stringify(journeyOf()));
-  form.append("denoise", $("denoise").checked);   // disabled in the UI for now (always false)
+  form.append("denoise", false);                  // no denoiser yet (control hidden until one exists)
   form.append("context", ctx);
   if (audioBlob) form.append("audio", audioBlob, filename);
   return form;
@@ -83,17 +83,30 @@ function makePlayer(btn) {
   return p;
 }
 
-// One message card: header with play button, the plain transcript, and a hidden .tech block.
+// POST one transcription request. Returns the JSON, or throws with the server's message.
+async function postTranscribe(form) {
+  const r = await fetch("/api/transcribe", {method: "POST", body: form});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || r.status);
+  return d;
+}
+
+// One message card: header with play button, the plain transcript, the reference, the
+// with/without-hint comparison (.cmp, only while Compare is on) and a hidden .tech block.
 function addCard(runId, who, cls = "") {
   const el = document.createElement("article");
   el.className = "msg " + cls;
   const when = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
   el.innerHTML = `<div class="msg-head"><button class="playbtn" title="Play the audio this transcript came from">▶</button>
     <span class="who">${esc(who)}</span><span class="when">${when}</span></div>
-    <div class="said"></div><div class="refbox"></div><div class="tech"></div>`;
+    <div class="said"></div><div class="refbox"></div><div class="cmp"></div><div class="tech"></div>`;
   $("result").append(el);
   const card = {
-    el,
+    el, runId,
+    data: null,      // the main transcription response
+    mk: null,        // ctx => FormData for this card's audio, so Compare can re-run it the other way
+    extra: {},
+    cmp: null,       // {key, data, error, pending}: the opposite-hint run for route `key`
     player: makePlayer(el.querySelector(".playbtn")),
     status(text) { el.querySelector(".said").innerHTML = `<div class="thinking">${esc(text)}</div>`; },
     error(msg) {
@@ -101,21 +114,25 @@ function addCard(runId, who, cls = "") {
       el.querySelector(".said").innerHTML = `<div class="lead">Sorry, that didn't work.</div><div class="hint">${esc(msg)}</div>`;
     },
     show(d, extra = {}) {
-      el.querySelector(".said").innerHTML = d.text
+      // The route lookup failed, so the hint only had the two ends of the journey: say so on the card.
+      const missed = d.hint_partial
+        ? `<div class="notice">Partial route hint: ${esc(d.hint_note)}.</div>` : "";
+      el.querySelector(".said").innerHTML = (d.text
         ? `<div class="lead">This is what was said:</div><div class="text">${esc(d.text)}</div>`
-        : `<div class="lead">This is what was said:</div><div class="empty">Couldn't make out any speech.</div>`;
+        : `<div class="lead">This is what was said:</div><div class="empty">Couldn't make out any speech.</div>`) + missed;
       el.querySelector(".refbox").innerHTML = refHtml(d.source && d.source.reference, d.reference_norm, d.text_norm);
       el.querySelector(".tech").innerHTML = techHtml(d, extra);
     },
-    // POST the form to /api/transcribe and fill this card. Returns the response (or null).
-    async transcribe(form, extra) {
+    // Transcribe this card's audio (mk(ctx) builds the form) and fill the card. Returns the response (or null).
+    async transcribe(mk, ctx, extra = {}) {
+      card.mk = mk; card.extra = extra;
       card.status("transcribing…");
       try {
-        const r = await fetch("/api/transcribe", {method: "POST", body: form});
-        const d = await r.json();
+        const d = await postTranscribe(mk(ctx));
         if (runId !== current.id) return null;          // the user has moved on
-        if (!r.ok) throw new Error(d.detail || r.status);
+        card.data = d;
         card.show(d, extra);
+        if (comparing()) queueCompare(card);
         return d;
       } catch (e) {
         if (runId === current.id) card.error(e.message);
@@ -125,6 +142,93 @@ function addCard(runId, who, cls = "") {
   };
   current.cards.push(card);
   return card;
+}
+
+// ---------- Compare: the same audio with vs without the route hint ----------
+// Turning Compare on re-runs every finished card with the opposite hint setting; new cards get
+// their second run automatically. Runs go one at a time (the server does one at a time anyway).
+const routeKey = () => route ? `${route.origin} → ${route.destination}` : "";
+const comparing = () => $("compare").checked && hasJourney();
+let compareQueue = Promise.resolve();
+
+function queueCompare(card) {
+  const key = routeKey();
+  if (!card.data || !card.mk || (card.cmp && card.cmp.key === key)) return renderCompare(card);  // done already
+  card.cmp = {key, pending: true};
+  renderCompare(card);
+  const ctx = !card.data.context.applied;               // the other way round from the main run
+  compareQueue = compareQueue.then(async () => {
+    if (card.runId !== current.id || card.cmp.key !== key) return;   // stale: card gone or journey changed
+    try { card.cmp = {key, data: await postTranscribe(card.mk(ctx))}; }
+    catch (e) { card.cmp = {key, error: e.message}; }
+    if (card.runId === current.id) renderCompare(card);
+  });
+}
+
+// Words of a transcript, keeping the original spelling for display; `k` is the comparison key.
+const tokens = s => String(s || "").split(/\s+/).filter(Boolean)
+  .map(w => ({w, k: w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "")}));
+
+// WER of one response against its reference (null if the clip has no reference).
+function werOf(d) {
+  const a = words(d.reference_norm), b = words(d.text_norm);
+  if (!d.source || !d.source.reference || !a.length) return null;
+  return align(a, b).filter(o => o[0] !== "=").length / a.length;
+}
+
+function renderCompare(card) {
+  const el = card.el.querySelector(".cmp");
+  const c = card.cmp, main = card.data;
+  if (!c || !main) { el.innerHTML = ""; return; }
+  const mainHasHint = main.context.applied;
+  const other = c.data;
+  const withD = mainHasHint ? main : other, without = mainHasHint ? other : main;
+
+  // Which words the hint changed: align the two transcripts word by word.
+  let noHtml = "", hintHtml = "", changed = 0;
+  if (withD && without && withD.context.applied) {
+    const A = tokens(without.text), B = tokens(withD.text);
+    let i = 0, k = 0;
+    const no = [], yes = [];
+    for (const [op] of align(A.map(t => t.k), B.map(t => t.k))) {
+      if (op === "=") { no.push(esc(A[i++].w)); yes.push(esc(B[k++].w)); continue; }
+      changed++;
+      if (op === "S" || op === "D") no.push(`<span class="gone">${esc(A[i++].w)}</span>`);
+      if (op === "S" || op === "I") yes.push(`<mark class="came">${esc(B[k++].w)}</mark>`);
+    }
+    noHtml = no.join(" "); hintHtml = yes.join(" ");
+  }
+
+  const row = (cls, tag, d, html, note) => `<div class="cmp-row ${cls}">
+      <div class="cmp-tag">${tag}</div>
+      <div class="cmp-text">${note || html || (d && d.text ? esc(d.text) : '<span class="hint">no speech found</span>')}</div>
+      <div class="cmp-wer">${d && werOf(d) != null ? `WER ${werOf(d).toFixed(2)}` : ""}</div></div>`;
+  const pending = '<span class="thinking">re-running…</span>';
+  const failed = msg => `<span class="notice inline">${esc(msg)}</span>`;
+  const hintMissing = withD && !withD.context.applied;  // asked for the hint, server couldn't build it
+
+  let foot;
+  if (c.pending) foot = `Transcribing ${mainHasHint ? "without" : "with"} the hint for ${esc(c.key)}…`;
+  else if (c.error) foot = "The second run failed.";
+  else if (hintMissing) foot = "No route hint available, so there's nothing to compare.";
+  else {
+    const w0 = werOf(without), w1 = werOf(withD);
+    const delta = w0 == null ? "" : w1 < w0 ? `<span class="delta better">WER ${w0.toFixed(2)} → ${w1.toFixed(2)} · hint helped</span>`
+      : w1 > w0 ? `<span class="delta worse">WER ${w0.toFixed(2)} → ${w1.toFixed(2)} · hint hurt</span>`
+      : `<span class="delta same">WER unchanged (${w0.toFixed(2)})</span>`;
+    foot = (withD.hint_partial ? "Hint had only the origin and destination. " : "") + (changed ? `The route hint changed <b>${changed}</b> word${changed === 1 ? "" : "s"}.` : "The route hint changed nothing here.") + delta;
+  }
+  el.innerHTML = `<div class="cmp-title">With vs without route hint <span>${esc(c.key)}</span></div>
+    ${row("no", "No hint", without, noHtml, !without ? (c.error ? failed(c.error) : pending) : "")}
+    ${row("yes", "Route hint", hintMissing ? null : withD, hintHtml, !withD ? (c.error ? failed(c.error) : pending) : hintMissing ? failed("no journey set, so no hint") : "")}
+    <div class="cmp-foot">${foot}</div>`;
+}
+
+// Show the Route hint panel only when there is a route, and (re)run comparisons when Compare is on.
+function updateCompareUI() {
+  $("hintpanel").hidden = !hasJourney();
+  document.body.classList.toggle("comparing", comparing());
+  if (comparing()) current.cards.forEach(queueCompare);
 }
 
 // ---------- Human reference vs model: word diff ----------
@@ -190,10 +294,9 @@ function techHtml(d, extra) {
     chip(esc(d.model)),
     src.clip_id ? chip(`clip ${esc(src.clip_id)}${src.segment ? ` · ${src.segment[0]}–${src.segment[1] ?? "end"} s` : ""}`) : "",
     extra.simulated ? chip(`train PA · ${extra.simulated.snr_db} dB SNR${extra.simulated.pa_filter ? " · band-pass" : ""}`) : "",
-    chip(`denoise ${d.denoise.applied ? "on" : "off"}`, d.denoise.applied),
     chip(`context hint ${d.context.applied ? "on" : "off"}`, d.context.applied),
     d.hint ? chip(esc(d.hint)) : "",
-    d.hint_error ? chip(esc(d.hint_error), false) : "",
+    d.hint_partial ? chip("partial hint: origin + destination only", false) : "",
   ].join("");
   const segs = d.segments.length
     ? `<details><summary>Whisper segments (${d.segments.length})</summary>
@@ -268,6 +371,7 @@ async function setJourney(origin, destination) {
   $("from").value = origin; $("to").value = destination;
   route = null;
   renderClips();
+  updateCompareUI();
   $("routebox").hidden = true;
   if (!origin.trim() || !destination.trim()) { $("routemsg").textContent = ""; return; }
   $("routemsg").textContent = "looking up route…";
@@ -277,9 +381,10 @@ async function setJourney(origin, destination) {
     if (!r.ok) throw new Error(d.detail || r.status);
     if ($("from").value.trim() !== origin.trim() || $("to").value.trim() !== destination.trim()) return;  // user moved on
     route = d;
-    $("routemsg").textContent = "";
+    $("routemsg").textContent = d.partial ? `Partial route hint: ${d.note}.` : "";
     $("routehint").textContent = "Route hint: " + d.hint;
     $("routebox").hidden = false;
+    updateCompareUI();
   } catch (e) {
     $("routemsg").textContent = e.message;
   }
@@ -308,21 +413,11 @@ function playClip() {
   const runId = newResultSet();
   const src = "/audio/" + c.audio_path, s0 = +c.seg_start || 0, s1 = c.seg_end ? +c.seg_end : null;
   const mk = ctx => { const f = buildForm(null, null, ctx); f.append("clip_id", c.clip_id); return f; };
-  if ($("compare").checked && hasJourney()) return compareCards(runId, mk, src, s0, s1);
   const card = addCard(runId, "Announcement");
   // The API trims labelled clips to seg_start..seg_end; play exactly that part.
   card.player.setSource(src, s0, s1);
   card.player.play();
-  card.transcribe(mk($("context").checked && hasJourney()));
-}
-
-// Same audio twice: without and with the route hint. Each card keeps its own play button.
-async function compareCards(runId, mk, src, s0 = 0, s1 = null) {
-  const a = addCard(runId, "Without hint"), b = addCard(runId, "With route hint", "pa");
-  [a, b].forEach(c => c.player.setSource(src, s0, s1));
-  a.player.play();
-  await a.transcribe(mk(false));
-  if (runId === current.id) await b.transcribe(mk(true));
+  card.transcribe(mk, $("context").checked && hasJourney());   // Compare adds the other run itself
 }
 
 // ---------- Microphone ----------
@@ -367,11 +462,9 @@ async function toggleRecording() {
 function transcribeRecording() {
   const runId = newResultSet();
   const rec = lastRecording, name = `mic.${extFor(rec)}`;
-  if ($("compare").checked && hasJourney())
-    return compareCards(runId, ctx => buildForm(rec, name, ctx), URL.createObjectURL(rec));
   const card = addCard(runId, "Your voice");
   card.player.setSource(URL.createObjectURL(rec));
-  card.transcribe(buildForm(rec, name, $("context").checked && hasJourney()));
+  card.transcribe(ctx => buildForm(rec, name, ctx), $("context").checked && hasJourney());
 }
 
 // Simulate my PA: play your voice, then straight away the train-PA version; transcribe both.
@@ -413,8 +506,8 @@ async function simulatePA() {
 
   // 2. Transcribe both, one after the other (the server runs one at a time anyway).
   const ctx = $("context").checked && hasJourney();
-  await voice.transcribe(buildForm(rec, `mic.${extFor(rec)}`, ctx));
-  if (paBlob && runId === current.id) await pa.transcribe(buildForm(paBlob, "pa.wav", ctx), {simulated: settings});
+  await voice.transcribe(c => buildForm(rec, `mic.${extFor(rec)}`, c), ctx);
+  if (paBlob && runId === current.id) await pa.transcribe(c => buildForm(paBlob, "pa.wav", c), ctx, {simulated: settings});
 }
 
 // ---------- Analysis panel + evidence ----------
@@ -436,6 +529,7 @@ $("analysis").onchange = () => {
   document.body.classList.toggle("analysis", $("analysis").checked);
   $("side").hidden = !$("analysis").checked;
 };
+$("compare").onchange = updateCompareUI;
 $("clip").onchange = () => selectClip($("clip").value);
 $("play").onclick = playClip;
 $("rec").onclick = toggleRecording;
