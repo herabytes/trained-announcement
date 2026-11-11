@@ -207,7 +207,7 @@ def announcement_clips() -> dict:
             and labels.get(k, {}).get("kind") not in EXCLUDED_KINDS}
 
 
-PARTIAL_NOTE = "couldn't look up the stations in between, so the hint uses only the origin and destination"
+PARTIAL_NOTE = "journey not recorded, so the hint uses only the origin and destination"
 
 
 def route_stations(origin: str, destination: str) -> tuple[list[str], bool]:
