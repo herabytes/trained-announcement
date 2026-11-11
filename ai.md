@@ -1,20 +1,24 @@
-# AI usage
+# How I used AI
 
-## Tools used
+**Tools:** Claude Code (Claude Opus 5.5) as the main collaborator; Claude subagents for parallel jobs; Gemini once, for labelling context.
 
-- **Claude Code (Claude Opus 5.5)**: TODO: what it did and what I decided myself.
-- **Gemini (Google)**: help understanding announcements while labelling (below).
+## 1. Opus for execution
+Claude Code wrote most of the code (eval script, labelling page, results viewer, demo, route hint), ran the evals, and handled git. I drove: I picked the problem, the priorities (MoSCoW) and the product design, and had it walk me through `run_eval.py` line by line (I wrote my own first scoring function before switching to `jiwer`).
+✏️ *(your words: how you directed it, what you changed or rejected)*
 
-## Labelling: LLM help with context, audio has the final say
+## 2. Subagents for parallel work
+Separate Claude instances ran jobs in the background while I worked: sourcing the Freesound data, building and redesigning the demo, a **read-only audit** of every number shown, the regression page, research (open station data, Whisper prompting), and side experiments. I reviewed every report before anything was merged.
+✏️ *(your words: e.g. the audit that caught the stale baseline)*
 
-Some reference transcripts in `data/raw/labels.csv` were made with LLM help:
+## 3. Questioning me on design choices
+I asked Claude to quiz me instead of deciding for me. Decisions I made and can defend: a human-verified answer key (not model output), wrong is worse than missing, medians because of outliers, compare conditions inside one run, route-based context instead of a generic list.
+✏️ *(your words: one question that changed your mind)*
 
-1. A big model (Whisper large-v3-turbo) drafted the transcript.
-2. When the draft didn't make sense to me, I pasted it into Gemini to ask what the announcement probably meant in railway context.
-3. **I re-listened** with that in mind and kept only words I could actually hear; anything else became `[inaudible]`.
+## Labelling: LLM for context, audio has the final say
+When a draft transcript didn't make sense, I asked Gemini what it probably meant in railway context, then **re-listened** and kept only what I could hear. Example (`fs277754`): "the unit is about to **call to** the rear" → probably "**couple to**" (another train attaching). Context raises the ceiling for humans too.
 
-The LLM only suggested; it never heard the audio and never wrote a reference directly. This isn't tracked per clip.
-
-**Example (`fs277754`):** the draft said *"The unit is about to **call to** the rear of this train"*, which made sense to me, so I had accepted it. Gemini pointed out it's almost certainly *"couple to"*: another train unit physically attaching to the back, which is why the doors close and then reopen.
-
-**Finding:** a labeller without railway knowledge mis-heard "couple to" as "call to"; a text-only LLM with railway knowledge fixed it without hearing anything. **Context raises the ceiling for humans as well as for models.** Human-verified references are only as good as the labeller's domain knowledge.
+## Mistakes the AI made that I (or the audit) caught
+- A "huge win" on Plockton compared different audio (57 s vs 3.7 s): a tie when compared fairly.
+- "A bigger model doesn't help on human clips" came from means dragged by one outlier; by median it does.
+- The generic hint started with "UK train announcement.", which does nothing (Whisper's hint isn't an instruction).
+- Model-drafted answer keys flattered the drafter and punished the right model (Tiverton Parkway).

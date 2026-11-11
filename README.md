@@ -40,7 +40,7 @@ Method: what makes a good transcription? Words. Downstream for trains specifical
 -  the generic and route medians are close (0.16 vs 0.14), but route wins in terms of place names not in generic list (Plockton, Kirkcaldy, Inverkeithing, Tiverton), and didn't made any clip worse (0 regressed)
 - Context helps, but can produce plausible station names it couldn't hear (`fs317554`: "Swinton", p = 0.03). It didn't invent stations where there were none (`fs267700`). Word confidence flags some of these, but not reliably (PR #9).
 - Having a hint also added a median latency of 0.5s in general, but helps in once case where Whisper was lost retrying without it (clip id fs317554)
-- generic + route → happy-ish: median 0.095 vs 0.10 for route alone, a small gain. It fixes the platform one (`fs44007`: "platform 6" + "London Paddington", where route alone said "back on 6th"). The only "worse" clip is Plockton, which still says Plockton and just drops "we're now": WER calls it worse, the passenger wouldn't care. Lingo phrases were picked after seeing the clips, so it's optimistic. `results/2026-11-11_route_lingo`
+- generic + route → happy-ish: median 0.095 vs 0.10 for route alone. It fixes the platform one (`fs44007`: "platform 6" + "London Paddington"; route alone said "back on 6th"). The one "worse" clip is Plockton: it still says **Plockton** and only dropped the filler "we're now", but WER still counts that as worse. **This is why we need key-fact scoring:** WER treats "we're" the same as the station name. (Lingo phrases picked after seeing the clips, so optimistic.) `results/2026-11-11_route_lingo`
 There is a dashboard for eval results. On the demo you can toggle analysis to see the metrics.
 
 
@@ -82,6 +82,12 @@ uv run web/app.py --label    # labelling page  → http://127.0.0.1:8000/label
 uv run scripts/run_eval.py --run-id my_run                      # all announcement clips, both models
 uv run scripts/run_eval.py --run-id my_run --clips fs267700     # one clip
 ```
+
+**Where to look, in order** (after `uv run web/app.py --demo`):
+1. **http://127.0.0.1:8000/demo**: the product. Pick Plockton, then in Analysis tick *Compare with vs without route hint*.
+2. **http://127.0.0.1:8000/**: the results viewer: baseline per clip, every model side by side.
+3. **http://127.0.0.1:8000/regressions**: no hint → route hint, per clip, with a pass/fail gate.
+4. **http://127.0.0.1:8000/context**: how the route hint works.
 
 The first transcription downloads Whisper Small (~500 MB, one-off); the first eval run also downloads Parakeet TDT 0.6B v3 int8.
 
