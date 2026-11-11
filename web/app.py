@@ -439,6 +439,11 @@ def context_page():
     return FileResponse(STATIC / "context.html")
 
 
+@app.get("/regressions")
+def regressions_page():
+    return FileResponse(STATIC / "regressions.html")
+
+
 @app.get("/demo")
 def demo_page():
     return FileResponse(STATIC / "demo.html")
