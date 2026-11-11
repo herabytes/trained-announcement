@@ -80,3 +80,10 @@ The experiment is to run the same thing but with the denoising step. We see WER 
 
 The better experiment is definitely giving it place name and train lingo bias. Might need to pull data from this.
 We currently just plug 'context' into Whisper-small-context with some common phrases and place names, relative to UK rail. Realistically this would pull from the passenger's train info input.
+
+There is an LLM web search (agent?) that fetches a list of possible station names.
+
+
+
+## Demo
+Simulated PA by band filter.
