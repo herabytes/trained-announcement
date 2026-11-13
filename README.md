@@ -8,10 +8,12 @@
 
 On the train, the PA starts firing and you start to think you don't speak English. You completely miss what changes or delays were announced.
 Everyone else starts moving (or worse, laughing) and you don't know why!
+
 But your device can help!
 
 ### Who it's for / why voice
 Voice is the only way live announcements show in many trains. Some operators show live transcriptions on screens (e.g. [Televic](https://www.televic.com/en/rail/solutions/live-transcription-of-announcements)), but not every train service has it. When you're locked in with headphones or sleepy, you completely miss it visually too. #decentralisation 
+
 This is also useful for people who are hard of hearing or are non-native (or non-local) English speakers.
 
 
@@ -26,39 +28,61 @@ The hard parts for a human, also hard for a transcription model:
 Essentially stands in for:
 - your audio processing neural units (STT model)
 - unfamiliar context (context hints / train lingo knowledge)
+  
 While fitting on your phone by small size, and only requiring loading journey info (like what Televic does) once before the journey/when you do have good Internet.
+
 For demo's sake this is a web app, you can use the sample clips with preset journeys, or enter your own journey and record your own announcement with a PA simulation.
 The audio is then transcribed.
 
 
 ### 2. Evidence that it works
-What makes a good transcription? Word accuracy. For trains specifically, it should get key facts the passenger would act on - platform and station names. I only had time to try solve the transcription quality, upstream of facts. I considered denoising, but there is research saying that it hurts quality. The accuracy is also limited by contextual knowledge. I didn't know Conisbrough existed, so the model transcribing it correctly was marked wrong.
+What makes a good transcription? Word accuracy. For trains specifically, it should get key facts the passenger would act on - platform and station names.
 
-*The eval:* scoring a transcription run with word error rate and latency (how long the model takes to transcribe)
+I only had time to try solve the transcription quality, upstream of facts. I considered denoising, but there is research saying that it hurts quality. 
 
-*Baseline runs* with small (and fast) models Parakeet, Whisper Small and large Whisper: 
-The live human PAs are harder to get right than robotic spliced station announcements by ~3–4 times (median WER: Whisper Small 0.46 vs 0.15, Parakeet 0.88 vs 0.22). Not all drivers are telepresenters and the content is less predictable (e.g. `fs277754`: another unit is about to couple? call? to the rear of the train). This motivates contextual hinting with train vocabulary.
-*Context hint run*: 
-- Only on Whisper Small because Parakeet doesn't support hints.
-- We use a generic list of rail lingo, e.g. *Edinburgh Waverley, ScotRail, "Change here for"* (caveat: the generic list contains stations from the test clips, so generic vs route isn't clean. Needs a re-run with lingo-only)
-- We use origin and destination stations to search up stations it might pass on the specific journey.
-Results:
--  the generic and route medians are close (0.16 vs 0.14), but route gets the place names not in generic list (Plockton, Kirkcaldy, Inverkeithing...), and didn't made any clip worse (0 regressed). Scoring by key facts should recognise this gain.
-- Context helps, but can produce plausible station names where a name is inaudible (`fs317554`: "Swinton", p = 0.03). It didn't invent stations in the wrong places (`fs267700`). Word confidence can flag this but not reliably (PR #9).
-- Having a hint also increased the median latency of 0.5s, but helps in one case where Whisper was retrying with randomness 3 times without it, because the initial tries were so bad (clip `fs317554`).
-- Running with both generic and route has a tiny median gain. 0.095 vs 0.10 for just route. It fixes `fs44007` to get both "platform 6" and "London Paddington” where route alone said "back on 6th". The Plockton clip dropped the opening "we're now", possible due to randomness, but WER would count that as bad as dropping ‘Plockton’. This is also why we need key-fact scoring eventually.
+The accuracy is also limited by contextual knowledge. I didn't know Conisbrough existed, so the model transcribing it correctly was marked wrong.
 
 There is a dashboard for eval results. On the demo you can toggle analysis to see the metrics.
 
+*The eval:* scoring a transcription run with word error rate and latency (how long the model takes to transcribe)
 
-## What I'd do next
+#### Methods and Results
+*Baseline runs* with small (and fast) models Parakeet, Whisper Small and large Whisper: 
+
+The live human PAs are harder to get right than robotic spliced station announcements by ~3–4 times (median WER: Whisper Small 0.46 vs 0.15, Parakeet 0.88 vs 0.22). Not all drivers are telepresenters and the content is less predictable (e.g. `fs277754`: another unit is about to couple? call? to the rear of the train). This motivates contextual hinting with train vocabulary.
+
+*Context hint run*: 
+- Only on Whisper Small because Parakeet doesn't support hints.
+- Context is a generic list of rail lingo as “the words that came before what the audio says”, e.g. *Edinburgh Waverley, ScotRail, "Change here for"* (caveat: the generic list contains stations from the test clips, so generic vs route isn't clean. Needs a re-run with lingo-only)
+- We use origin and destination stations to search up stations it might pass on the specific journey.
+
+Results:
+-  the generic and route medians are close (0.16 vs 0.14), but route gets the place names not in generic list (Plockton, Kirkcaldy, Inverkeithing...), and didn't made any clip worse (0 regressed). Scoring by key facts should recognise this gain.
+- Context helps, but can produce plausible station names where a name is inaudible (`fs317554`: "Swinton", p = 0.03). It didn't invent stations in the wrong places (`fs267700`). Word confidence can flag this but not reliably (PR #9).
+- Increased the median latency of 0.5s, but helps in one case where Whisper was retrying with randomness 3 times without it, because the initial tries were so bad (clip `fs317554`).
+- Running with both generic and route has a tiny median gain. 0.095 vs 0.10 for just route. It fixes `fs44007` to get both "platform 6" and "London Paddington” where route alone said "back on 6th". The Plockton clip dropped the opening "we're now", but WER would count that as bad as dropping ‘Plockton’. This is also why we need key-fact scoring eventually.
+
+  (I guess “we’re now” is less likely if the ‘words before’ is assumed, because ‘change here for we’re now approaching Plockton’ wouldn’t make sense. The middle bit might be quiet enough to be dropped by Whisper.)
+
+
+
+## What I'd do next with more time
+Limitations to fix:
 Product wise, in a real train scenario there are no clean audio segments, so I will need to implement a ping as wake word, or activate on speech. Still a challenge to detect the onset of PA voice and isolate it, because I've been on trains where people sing I Want It That Way on repeat.
-The current context hinting causes hallucinations, which needs investigating. At the minimum, unsure words need to be flagged (Whisper comes with % confidence info). An important measure is scoring key fact accuracy rather than just accuracy, so important things are weighted higher. Then see if WER transcription quality transfers. 
-It's also tricky with times, 15:36 and 15:26 sounded very similar. This is where denoising/upsampling? might help for PA in particular, but I haven't tested.
+
+
+The current context hinting causes hallucinations, which needs investigating. Possibly flag unsure words so the user can check (Whisper comes with % confidence info). It’s important to change WER to scoring key fact accuracy, then see if WER transcription quality transfers. 
+
 The dataset I've collected is very limited. The number of examples is obviously small because I had to verify transcriptions. As a result, the data isn't as varied and representative. For example, I didn't bother labelling long audios.
 
+It's also tricky with times, 15:36 and 15:26 sounded very similar. This is where denoising/upsampling? might help for PA in particular, but I haven't tested.
+
 Less crucial feature additions:
+
+Port this to mobile so I can actually use it :0
+
 Come up with features that actually help alert, like classifying the event of delay or cancellation... Maybe an agent can synthesise and decide what the user might need ;) for example, it can decide to alert and buzz when it's your stop next or tell you to look up more routes.
+
 I also can eliminate the live station search with static data because a train station likely doesn't spawn overnight, so selecting from and to should suffice.
 
 ## What's in this repo
