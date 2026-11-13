@@ -37,13 +37,55 @@ def _load_cache() -> dict:
     return json.loads(CACHE_FILE.read_text(encoding="utf-8")) if CACHE_FILE.is_file() else {}
 
 
+GRAPH_FILE = REPO_ROOT / "data" / "station_graph.json"   # built by scripts/build_station_graph.py
+
+
+def graph_route(origin: str, destination: str) -> list[str]:
+    """Shortest path (fewest stops) over Wikidata's station-adjacency graph. Offline, no LLM.
+    Caveat: this is every station on the line between them, not the train's actual stopping pattern."""
+    if not GRAPH_FILE.is_file():
+        return []
+    g = json.loads(GRAPH_FILE.read_text(encoding="utf-8"))
+    names, neighbours = g["names"], {}
+    for a, b in g["edges"]:
+        neighbours.setdefault(a, []).append(b)
+        neighbours.setdefault(b, []).append(a)
+
+    def candidates(name):   # exact name first; else names starting with it ("Edinburgh" -> "Edinburgh Waverley")
+        q = name.strip().lower()
+        exact = [i for i, n in names.items() if n.lower() == q]
+        return exact or [i for i, n in names.items() if n.lower().startswith(q)]
+
+    starts, goals = candidates(origin), set(candidates(destination))
+    previous = {s: None for s in starts}       # breadth-first search from every matching origin at once
+    frontier = list(starts)
+    while frontier and not goals & previous.keys():
+        nxt = []
+        for node in frontier:
+            for n in neighbours.get(node, []):
+                if n not in previous:
+                    previous[n] = node
+                    nxt.append(n)
+        frontier = nxt
+    end = next((gl for gl in goals if gl in previous), None)
+    path = []
+    while end is not None:
+        path.append(names[end])
+        end = previous[end]
+    return path[::-1]
+
+
 def lookup_route(origin: str, destination: str, timeout: float = 120) -> list[str]:
-    """Stations on the route, in order. Cache first; otherwise ask the Modal endpoint (and cache it).
+    """Stations on the route, in order. Cache first; then the offline Wikidata graph;
+    otherwise ask the Modal endpoint (and cache it).
     timeout: seconds to wait for the live lookup (short for the interactive demo, longer for batch evals)."""
     cache = _load_cache()
     key = _key(origin, destination)
     if key in cache:
         return cache[key]["stations"]
+    stations = graph_route(origin, destination)
+    if stations:
+        return stations
 
     url = LOOKUP_URL + "?" + urllib.parse.urlencode({"origin": origin, "destination": destination})
     with urllib.request.urlopen(url, timeout=timeout) as response:   # raises if the lookup fails
