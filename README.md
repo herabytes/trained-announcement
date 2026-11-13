@@ -36,11 +36,9 @@ The audio is then transcribed.
 
 
 ### 2. Evidence that it works
-What makes a good transcription? Word accuracy. For trains specifically, it should get key facts the passenger would act on - platform and station names.
+What makes a good transcription? Word accuracy. For trains specifically, it should get key facts the passenger would act on - platform and station names. I only had time to try solve the transcription quality, upstream of facts. 
 
-I only had time to try solve the transcription quality, upstream of facts. I considered denoising, but there is research saying that it hurts quality. 
-
-The accuracy is also limited by contextual knowledge. I didn't know Conisbrough existed, so the model transcribing it correctly was marked wrong.
+I tested the effect of context hinting, since accuracy is limited by contextual knowledge. I can’t transcribe Conisbrough without knowing it exists.
 
 There is a dashboard for eval results. On the demo you can toggle analysis to see the metrics.
 
@@ -70,12 +68,12 @@ Results:
 Limitations to fix:
 Product wise, in a real train scenario there are no clean audio segments, so I will need to implement a ping as wake word, or activate on speech. Still a challenge to detect the onset of PA voice and isolate it, because I've been on trains where people sing I Want It That Way on repeat.
 
-
 The current context hinting causes hallucinations, which needs investigating. Possibly flag unsure words so the user can check (Whisper comes with % confidence info). It’s important to change WER to scoring key fact accuracy, then see if WER transcription quality transfers. 
 
 The dataset I've collected is very limited. The number of examples is obviously small because I had to verify transcriptions. As a result, the data isn't as varied and representative. For example, I didn't bother labelling long audios.
 
 It's also tricky with times, 15:36 and 15:26 sounded very similar. This is where denoising/upsampling? might help for PA in particular, but I haven't tested.
+There is research saying that it hurts transcription quality. Normalising audio levels could help where quieter speech is dropped? I don’t know whether a small model means it didn’t have capacity to learn circuits for pre-processing audio.
 
 Less crucial feature additions:
 
