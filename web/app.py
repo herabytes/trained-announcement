@@ -325,7 +325,10 @@ def transcribe(
         model = get_model()
         load_s = time.time() - t_load
         t0 = time.time()
-        segments, _info = model.transcribe(samples, language="en", beam_size=5, initial_prompt=hint)
+        # word_timestamps=True adds a small alignment pass (cross-attention DTW) to get per-word
+        # probabilities; the transcript text itself is unchanged (see the latency note in the PR).
+        segments, _info = model.transcribe(samples, language="en", beam_size=5, initial_prompt=hint,
+                                           word_timestamps=True)
         segments = list(segments)  # the real work happens here: segments is a lazy generator
         latency_s = time.time() - t0
 
@@ -334,6 +337,9 @@ def transcribe(
         "text": text,
         # Both sides normalised exactly like the eval, so the page's diff and WER match run_eval.py.
         "text_norm": normalise(text),
+        # Per-word confidence for the "grey out unsure words" display. `word` keeps its leading space.
+        "words": [{"word": w.word, "start": round(w.start, 2), "end": round(w.end, 2),
+                   "probability": round(w.probability, 3)} for seg in segments for w in (seg.words or [])],
         "reference_norm": normalise(source.get("reference")),
         "latency_s": round(latency_s, 2),               # model time only, like inference_s in the eval
         "total_s": round(time.time() - t_request, 2),   # whole request: decode + mix + model (+ load)
