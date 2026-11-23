@@ -104,3 +104,7 @@ footer{text-align:center;color:var(--soft);font-size:12px;padding:10px 0 24px}
 
 .chipbtn{border:1px solid var(--line);background:#f5f7fb;padding:4px 10px;font-size:13px;margin:6px 6px 0 0}
 #routebox{margin-top:8px}
+
+/* words the model was unsure about */
+.said .text .unsure{color:#9a9a9a;border-bottom:1px dotted #9a9a9a;cursor:help}
+.conflegend{margin:0 0 6px}

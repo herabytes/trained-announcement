@@ -83,6 +83,26 @@ function makePlayer(btn) {
   return p;
 }
 
+// Words the model was unsure about (probability below this) are greyed. 0.5 to start; see the PR for the data.
+const UNSURE_P = 0.5;
+
+// Transcript HTML from per-word probabilities; falls back to plain text if `words` is missing.
+// Each word keeps its leading space (as Whisper emits it), so the text reads exactly like d.text.
+function transcriptHtml(d) {
+  if (!Array.isArray(d.words) || !d.words.length) return esc(d.text);
+  let unsure = 0;
+  const html = d.words.map(w => {
+    const m = /^(\s*)([\s\S]*)$/.exec(w.word);
+    if (w.probability < UNSURE_P) {
+      unsure++;
+      return `${m[1]}<span class="unsure" title="unsure: p=${(+w.probability).toFixed(2)}">${esc(m[2])}</span>`;
+    }
+    return esc(w.word);
+  }).join("");
+  if (unsure) $("conflegend").hidden = false;
+  return html;
+}
+
 // One message card: header with play button, the plain transcript, and a hidden .tech block.
 function addCard(runId, who, cls = "") {
   const el = document.createElement("article");
@@ -102,7 +122,7 @@ function addCard(runId, who, cls = "") {
     },
     show(d, extra = {}) {
       el.querySelector(".said").innerHTML = d.text
-        ? `<div class="lead">This is what was said:</div><div class="text">${esc(d.text)}</div>`
+        ? `<div class="lead">This is what was said:</div><div class="text">${transcriptHtml(d)}</div>`
         : `<div class="lead">This is what was said:</div><div class="empty">Couldn't make out any speech.</div>`;
       el.querySelector(".refbox").innerHTML = refHtml(d.source && d.source.reference, d.reference_norm, d.text_norm);
       el.querySelector(".tech").innerHTML = techHtml(d, extra);
